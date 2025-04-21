@@ -323,26 +323,49 @@ class FramesRecorder():
     def __init__(self, gridHolder):
         self.data = {
             "timestamps": [],
-            "fuel_moisture_percentage": {"data": [], 'colormap': 'blues'},
-            "temperature_celsius": {"data": [], 'colormap': 'hot'},
-            "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis'},
-            "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r'}
+            "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
+            "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
+            "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
+            "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
         }
 
         self.simulationProgress = 0
-
         self.referenceGrid = gridHolder
 
     def reset(self):
-        self.__init__()
+        self.__init__(self.referenceGrid)
+
+    def _update_min_max(self, key, array):
+        arr_min = np.nanmin(array)
+        arr_max = np.nanmax(array)
+        self.data[key]['min'] = min(self.data[key]['min'], arr_min)
+        self.data[key]['max'] = max(self.data[key]['max'], arr_max)
 
     def record(self, second, totalTime):
         self.data["timestamps"].append(second)
-        self.data['fuel_moisture_percentage']["data"].append(np.copy((self.referenceGrid.waterMass/self.referenceGrid.fuelMass)*100))
-        self.data['temperature_celsius']["data"].append(np.copy(self.referenceGrid.cellTemperature)-273.15)
-        self.data['fire_intensity_kW_m2']["data"].append(np.copy(self.referenceGrid.fireIntensity))
-        self.data["fuel_mass_kg"]["data"].append(np.copy(self.referenceGrid.fuelMass))
-        self.simulationProgress = (second*100)/totalTime
+
+        # Fuel moisture (%)
+        moisture = (self.referenceGrid.waterMass / self.referenceGrid.fuelMass) * 100
+        self.data['fuel_moisture_percentage']["data"].append(np.copy(moisture))
+        self._update_min_max('fuel_moisture_percentage', moisture)
+
+        # Temperature (Celsius)
+        temp_c = self.referenceGrid.cellTemperature - 273.15
+        self.data['temperature_celsius']["data"].append(np.copy(temp_c))
+        self._update_min_max('temperature_celsius', temp_c)
+
+        # Fire intensity (kW/m2)
+        intensity = self.referenceGrid.fireIntensity
+        self.data['fire_intensity_kW_m2']["data"].append(np.copy(intensity))
+        self._update_min_max('fire_intensity_kW_m2', intensity)
+
+        # Fuel mass (kg)
+        fuel_mass = self.referenceGrid.fuelMass
+        self.data["fuel_mass_kg"]["data"].append(np.copy(fuel_mass))
+        self._update_min_max('fuel_mass_kg', fuel_mass)
+
+        # Progress
+        self.simulationProgress = (second * 100) / totalTime
     
 def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
     elapsedTime = 0  # initialize a variable to keep track of time

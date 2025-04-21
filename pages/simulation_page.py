@@ -212,12 +212,12 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
 
     fig_updated = False
 
-    if simulation_status['state'] == 'running':
+    if simulation_status['state'] == 'running' or simulation_status['state'] == 'finished':
         if sim_frames and data_shown in sim_frames:
             frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
             fig.data[2].z = frame_data
-            fig.data[2].pop('zmin', None)
-            fig.data[2].pop('zmax', None)
+            fig.data[2].zmin = sim_frames[data_shown]["min"]
+            fig.data[2].zmax = sim_frames[data_shown]["max"]
             fig.data[2].colorscale = sim_frames[data_shown]["colormap"]
             fig_updated = True
         else:
@@ -232,6 +232,14 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             f"time passed: {days_p}d {hours_p}h {minutes_p}m {seconds_p}s",
             f'progress: {round(simulation_status["progress"])} %, {simulation_status["state"]}'
         )
+    
+    elif simulation_status['state'] == 'finished':
+        return (
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            f'Progress: 100%, Simulation Finished'
+        )
 
     elif simulation_status['state'] == 'preparing':
         if trigger == 'uploaded-file-store-simulation' and uploaded_data and root_is_first_plot:
@@ -242,7 +250,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             igniting_cells = np.zeros_like(height)
 
             fig = make_subplots(rows=1, cols=2, subplot_titles=["Elevation (edit ignition on this one)", "Simulation"])
-            fig.add_trace(go.Heatmap(z=height, x=X[0], y=Y[:, 0], colorscale="Geyser"), row=1, col=1)
+            fig.add_trace(go.Heatmap(z=height, x=X[0], y=Y[:, 0], colorscale="Geyser", showscale=False), row=1, col=1)
             fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(opacity=0)), row=1, col=1)
             fig.add_trace(go.Heatmap(z=igniting_cells, x=X[0], y=Y[:, 0], colorscale="hot"), row=1, col=2)
             fig.update_layout(dragmode="select", xaxis2=dict(matches='x1'), yaxis2=dict(matches='y1'))
@@ -306,10 +314,11 @@ def update_slider_range_and_value(sim_frames):
     inputs=[
         Input('simulate-btn', 'n_clicks'),
         Input('reset-btn', 'n_clicks'),
+        Input('frame-interval', 'n_intervals')
     ],
     prevent_initial_call=True
 )
-def handle_simulation_buttons(sim_clicks, reset_clicks):
+def handle_simulation_buttons(sim_clicks, reset_clicks, n_intervals):
     trigger = ctx.triggered_id
 
     if trigger == 'simulate-btn' and sim_clicks > 0:
@@ -362,10 +371,30 @@ def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation
             )
             simulation_thread.start()
 
+# Lock to ensure only one thread can run the simulation at a time
+simulation_lock = threading.Lock()
+
 def thread_simulation(sim_grid, recorder, delta, total, interval):
     global simulation_status
-    fire_simulation.simulate(sim_grid, recorder, delta, total, interval)
-    simulation_status['state'] = 'stopped'
+    # Attempt to acquire the lock before starting the simulation
+    with simulation_lock:
+        # Only one thread can enter this block at a time
+        if simulation_status['state'] == 'running':
+            print("Simulation is already running. Please wait.")
+            return  # Exit if another simulation is already running
+        
+        # Mark simulation as running
+        simulation_status['state'] = 'running'
+
+        print("Starting simulation...")
+
+        # Run the simulation
+        fire_simulation.simulate(sim_grid, recorder, delta, total, interval)
+
+        # Once the simulation is finished, update the status
+        simulation_status['state'] = 'stopped'
+
+        print("Simulation finished.")
 
 @app.callback(
     Output('settings-store-simulation', 'data'),
@@ -401,19 +430,23 @@ def set_simulation_its(time_step, total_time, record_interval):
     Input('frame-interval', 'n_intervals'),
     prevent_initial_call=True
 )
-
 def update_plot_for_simulation(n_intervals):
     global simulation_status
     frames = frames_recorder.data
     simulation_status['progress'] = frames_recorder.simulationProgress
+
+    # If the simulation reaches 100%, set the state to 'finished'
+    if simulation_status['progress'] >= 100 and simulation_status['state'] != 'finished':
+        simulation_status['state'] = 'finished'
+    
     return frames
+
 
 @app.callback(
     Output('frame-interval', 'disabled'),
     Input('frame-interval', 'n_intervals'),
     Input('simulate-btn', 'n_clicks'),
 )
-
 def control_frame_interval(n_clicks, n_intervals):
     global simulation_status
     trigger = ctx.triggered_id
@@ -424,4 +457,4 @@ def control_frame_interval(n_clicks, n_intervals):
     elif trigger == 'frame-interval':
         if simulation_status['state'] != 'running':
             return True
-    
+    return False
