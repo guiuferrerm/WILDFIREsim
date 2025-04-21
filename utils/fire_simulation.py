@@ -329,35 +329,38 @@ class FramesRecorder():
             "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r'}
         }
 
+        self.simulationProgress = 0
+
         self.referenceGrid = gridHolder
 
     def reset(self):
         self.__init__()
 
-    def record(self, second):
+    def record(self, second, totalTime):
         self.data["timestamps"].append(second)
         self.data['fuel_moisture_percentage']["data"].append(np.copy((self.referenceGrid.waterMass/self.referenceGrid.fuelMass)*100))
         self.data['temperature_celsius']["data"].append(np.copy(self.referenceGrid.cellTemperature)-273.15)
         self.data['fire_intensity_kW_m2']["data"].append(np.copy(self.referenceGrid.fireIntensity))
         self.data["fuel_mass_kg"]["data"].append(np.copy(self.referenceGrid.fuelMass))
+        self.simulationProgress = (second*100)/totalTime
     
-# def simulate(deltaTime, totalTime):
-#     global gridHolder, recorderHolder
+def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
+    elapsedTime = 0  # initialize a variable to keep track of time
+    elapsedTimeForPlotRecord = 0
 
-#     elapsedTime = 0  # initialize a variable to keep track of time
-#     elapsedTimeForPlotRecord = 0
-
-#     simStep(1)
-#     elapsedTime += 1
-#     elapsedTimeForPlotRecord += 1
-#     recorderHolder.record(1)
+    gridHolder.runSimStep(1)
+    elapsedTime += 1
+    elapsedTimeForPlotRecord += 1
+    recorderHolder.record(1, totalTime)
     
-#     while elapsedTime < totalTime:
-#         simStep(deltaTime)
-#         elapsedTime += deltaTime
-#         elapsedTimeForPlotRecord += deltaTime
+    while elapsedTime < totalTime:
+        gridHolder.runSimStep(deltaTime)
+        elapsedTime += deltaTime
+        elapsedTimeForPlotRecord += deltaTime
         
-#         if elapsedTimeForPlotRecord >= (60*30):  # Check if 30 minutes (1800 seconds) have passed
-#             recorderHolder.record(elapsedTime)
-#             elapsedTimeForPlotRecord = 0  # reset the counter after recording
+        if elapsedTimeForPlotRecord >= (frameRecordInterval):  # Check if 30 minutes (1800 seconds) have passed
+            recorderHolder.record(elapsedTime, totalTime)
+            elapsedTimeForPlotRecord = 0  # reset the counter after recording
+    
+    print("finished simulation")
         

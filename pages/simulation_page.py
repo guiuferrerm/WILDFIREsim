@@ -3,6 +3,7 @@ import dash
 from dash import dcc, html, Input, Output, State, ctx, MATCH, ALL
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import threading
 
 from app import app
 from utils.height_data_array_prep import HGT_to_np_array, prepare_HGT_as_array_data
@@ -30,11 +31,10 @@ layout = html.Div([
             dcc.Store(id='settings-store-simulation'),
             dcc.Store(id='simulation-setup-settings-store', data={'time_step': 3, 'total_time': 3600}), # must be equal to initial input value
             dcc.Store(id='store-igniting-cells'),
-            dcc.Store(id='simulation-state', data={'state': 'preparing', 'frame': 0}),
             dcc.Store(id='sim-frame-store'),  # Holds the simulation frames
             dcc.Interval(
                 id='frame-interval',
-                interval=1000,  # in milliseconds
+                interval=2000,  # in milliseconds
                 n_intervals=0,  # starting at 0 intervals
                 disabled=True  # initially disabled, enabled after simulation starts
             ),
@@ -84,6 +84,7 @@ layout = html.Div([
                     dcc.Graph(id='simulation-plot'),
                     html.Div([
                         html.H3('time passed', id='simulation-frame-time'),
+                        html.H3('progress: ', id='simulation-progress'),
                     ], className='box-section'),
                     # Simulation Controls (below the plot)
                     html.Div([
@@ -108,6 +109,11 @@ layout = html.Div([
 
 
 root_is_first_plot = True
+# A global flag to monitor thread status
+simulation_status = {'state': 'preparing', 'progress': 0}
+simulation_grid = fire_simulation.SimGrid()
+frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
+simulation_thread = None  # Global thread object
 
 
 # Upload
@@ -181,9 +187,10 @@ def update_dynamic_inputs(data_array):
         Output('simulation-plot', 'figure'),
         Output('store-igniting-cells', 'data'),
         Output('simulation-frame-time', 'children'),
+        Output('simulation-progress', 'children'),
     ],
     inputs=[
-        Input('simulation-state', 'data'),
+        Input('simulate-btn', 'n_clicks'),
         Input('sim-frame-store', 'data'),
         Input('simulation-plot', 'relayoutData'),
         Input('frame-slider', 'value'),
@@ -195,8 +202,8 @@ def update_dynamic_inputs(data_array):
     ],
     prevent_initial_call=True
 )
-def update_plot_based_on_state(state_data, sim_frames, relayout_data, selected_frame, uploaded_data, data_shown, stored_ignition):
-    global fig, igniting_cells, X, Y, root_is_first_plot
+def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, selected_frame, uploaded_data, data_shown, stored_ignition):
+    global fig, igniting_cells, X, Y, root_is_first_plot, simulation_status
 
     trigger = ctx.triggered_id
 
@@ -205,7 +212,7 @@ def update_plot_based_on_state(state_data, sim_frames, relayout_data, selected_f
 
     fig_updated = False
 
-    if state_data['state'] == 'running':
+    if simulation_status['state'] == 'running':
         if sim_frames and data_shown in sim_frames:
             frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
             fig.data[2].z = frame_data
@@ -222,10 +229,11 @@ def update_plot_based_on_state(state_data, sim_frames, relayout_data, selected_f
         return (
             fig if fig_updated else dash.no_update,
             stored_ignition,
-            f"time passed: {days_p}d {hours_p}h {minutes_p}m {seconds_p}s"
+            f"time passed: {days_p}d {hours_p}h {minutes_p}m {seconds_p}s",
+            f'progress: {round(simulation_status["progress"])} %, {simulation_status["state"]}'
         )
 
-    elif state_data['state'] == 'preparing':
+    elif simulation_status['state'] == 'preparing':
         if trigger == 'uploaded-file-store-simulation' and uploaded_data and root_is_first_plot:
             root_is_first_plot = False
             X = np.array(uploaded_data["x_deg_mesh"])
@@ -261,26 +269,31 @@ def update_plot_based_on_state(state_data, sim_frames, relayout_data, selected_f
         return (
             fig if fig_updated else dash.no_update,
             igniting_cells.tolist(),
-            dash.no_update
+            dash.no_update,
+            dash.no_update,
         )
     
-    return dash.no_update, dash.no_update, dash.no_update
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
 # Update slider range
 @app.callback(
     output=[
         Output('frame-slider', 'min'),
         Output('frame-slider', 'max'),
+        Output('frame-slider', 'value'),
     ],
     inputs=[Input('sim-frame-store', 'data')],
     prevent_initial_call=True
 )
-def update_slider_range(sim_frames):
+def update_slider_range_and_value(sim_frames):
     if not sim_frames or "timestamps" not in sim_frames:
         raise dash.exceptions.PreventUpdate
 
     total_frames = len(sim_frames["timestamps"])
-    return 0, total_frames - 1
+    if simulation_status['state'] == 'running':
+        return 0, total_frames - 1, total_frames - 1
+    else:
+        return 0, total_frames - 1, dash.no_update
 
 # simulation buttons logic
 @app.callback(
@@ -288,31 +301,26 @@ def update_slider_range(sim_frames):
         Output('simulate-btn', 'disabled'),
         Output('reset-btn', 'disabled'),
         Output('frame-slider', 'disabled'),
-        Output('frame-slider', 'value'),
-        Output('simulation-state', 'data'),
         Output('all-inputs-simulation', 'className')
     ],
     inputs=[
         Input('simulate-btn', 'n_clicks'),
         Input('reset-btn', 'n_clicks'),
     ],
-    state=[State('simulation-state', 'data')],
     prevent_initial_call=True
 )
-def handle_simulation_buttons(sim_clicks, reset_clicks, current_state):
+def handle_simulation_buttons(sim_clicks, reset_clicks):
     trigger = ctx.triggered_id
 
     if trigger == 'simulate-btn' and sim_clicks > 0:
-        return True, False, False, 0, {'state': 'running', 'frame': 0}, 'all-inputs-simulation-disabled'
+        return True, False, False, 'all-inputs-simulation-disabled'
 
     if trigger == 'reset-btn' and reset_clicks > 0:
-        return False, True, True, 0, {'state': 'reset', 'frame': 0}, 'all-inputs-simulation'
+        return False, True, True, 'all-inputs-simulation'
 
     raise dash.exceptions.PreventUpdate
 
 @app.callback(
-    [Output('sim-frame-store', 'data'),
-     Output('frame-interval', 'disabled')],
     Input('simulate-btn', 'n_clicks'),
     [State('uploaded-file-store-simulation', 'data'),
      State('store-igniting-cells', 'data'),
@@ -321,11 +329,9 @@ def handle_simulation_buttons(sim_clicks, reset_clicks, current_state):
     prevent_initial_call=True
 )
 def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation_dt_t_data):
+    global simulation_thread
     if not sim_data or not igniting_cells:
         raise dash.exceptions.PreventUpdate
-    
-    simulation_grid = fire_simulation.SimGrid()
-    frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
         
     simulation_grid.setup(
         np.array(sim_data['height'], dtype=float),
@@ -347,26 +353,19 @@ def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation
     deltaTime = simulation_dt_t_data['time_step']
     recordInterval = simulation_dt_t_data['record_interval']
 
-    elapsedTime = 0  # initialize a variable to keep track of time
-    elapsedTimeForPlotRecord = 0
+    if simulation_status['state'] != 'running':
+        if simulation_thread is None or not simulation_thread.is_alive():
+            simulation_status['state'] = 'running'
+            simulation_thread = threading.Thread(
+                target=thread_simulation,
+                args=(simulation_grid, frames_recorder, deltaTime, totalTime, recordInterval)
+            )
+            simulation_thread.start()
 
-    simulation_grid.runSimStep(1)
-    elapsedTime += 1
-    elapsedTimeForPlotRecord += 1
-    frames_recorder.record(1)
-    
-    while elapsedTime < totalTime:
-        simulation_grid.runSimStep(deltaTime)
-        elapsedTime += deltaTime
-        elapsedTimeForPlotRecord += deltaTime
-        
-        if elapsedTimeForPlotRecord >= (recordInterval):  # Check if 30 minutes (1800 seconds) have passed
-            frames_recorder.record(elapsedTime)
-            elapsedTimeForPlotRecord = 0  # reset the counter after recording
-            
-    frames = frames_recorder.data
-
-    return frames, False
+def thread_simulation(sim_grid, recorder, delta, total, interval):
+    global simulation_status
+    fire_simulation.simulate(sim_grid, recorder, delta, total, interval)
+    simulation_status['state'] = 'stopped'
 
 @app.callback(
     Output('settings-store-simulation', 'data'),
@@ -396,3 +395,33 @@ def collect_settings(data, values, ids):
 
 def set_simulation_its(time_step, total_time, record_interval):
     return {'time_step': time_step, 'total_time': total_time, "record_interval": record_interval}
+
+@app.callback(
+    Output('sim-frame-store', 'data'),
+    Input('frame-interval', 'n_intervals'),
+    prevent_initial_call=True
+)
+
+def update_plot_for_simulation(n_intervals):
+    global simulation_status
+    frames = frames_recorder.data
+    simulation_status['progress'] = frames_recorder.simulationProgress
+    return frames
+
+@app.callback(
+    Output('frame-interval', 'disabled'),
+    Input('frame-interval', 'n_intervals'),
+    Input('simulate-btn', 'n_clicks'),
+)
+
+def control_frame_interval(n_clicks, n_intervals):
+    global simulation_status
+    trigger = ctx.triggered_id
+
+    if trigger == 'simulate-btn':
+        return False
+    
+    elif trigger == 'frame-interval':
+        if simulation_status['state'] != 'running':
+            return True
+    
