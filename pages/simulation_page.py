@@ -1,0 +1,370 @@
+import numpy as np
+import dash
+from dash import dcc, html, Input, Output, State, ctx, MATCH, ALL
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+from app import app
+from utils.height_data_array_prep import HGT_to_np_array, prepare_HGT_as_array_data
+from utils.npz_file_management import read_and_store_npz_contents
+from utils.dcc_upload_management import read_and_store_dcc_file_at
+from utils import fire_simulation
+from utils import time_conversion
+
+layout = html.Div([
+    html.Div([
+        html.Div([
+            html.Div([
+                dcc.Upload(
+                    id='upload-wfss-for-simulation',
+                    className='file-upload',
+                    children=html.Button('Upload .wfss file', className="button"),
+                    multiple=False,  # Allow only one file for simplicity
+                    accept='.wfss',
+                ),
+                html.Div(id='output-data-upload-simulation', className="error-message"),
+                html.Div("No file uploaded", id='upload-status-simulation', className="error-message"),
+            ], className="box-section"),
+            # Store the uploaded file data
+            dcc.Store(id='uploaded-file-store-simulation'),
+            dcc.Store(id='settings-store-simulation'),
+            dcc.Store(id='simulation-setup-settings-store', data={'time_step': 3, 'total_time': 3600}), # must be equal to initial input value
+            dcc.Store(id='store-igniting-cells'),
+            dcc.Store(id='simulation-state', data={'state': 'preparing', 'frame': 0}),
+            dcc.Store(id='sim-frame-store'),  # Holds the simulation frames
+            dcc.Interval(
+                id='frame-interval',
+                interval=1000,  # in milliseconds
+                n_intervals=0,  # starting at 0 intervals
+                disabled=True  # initially disabled, enabled after simulation starts
+            ),
+            html.Div([
+                html.Div([
+                    html.H2("Settings"),
+                    html.H4("version", id="version-label-simulation"),
+                    html.Div([
+                        html.H3("Simulation-Specific Settings"),
+                        html.Div([
+                            html.Label("time_step"),
+                            dcc.Input(id="simulation-time-step-input", value=3, type='number'),
+                        ], className="input-row"),
+                        html.Div([
+                            html.Label("total_time"),
+                            dcc.Input(id="simulation-total-time-input", value=3600, type='number'),
+                        ], className="input-row"),
+                    ], id='static-inputs-simulation'),
+                    html.Div([
+                        
+                    ], id='dynamic-inputs-simulation'),
+                ], id='all-inputs-simulation', className='all-inputs-simulation'),
+            ], className="box-section"),
+        ], className='simulation-input'),
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Div([
+                        dcc.Dropdown(
+                            id='data-type-dropdown-simulation',
+                            options=[
+                                {'label': 'temperature (C°)', 'value': 'temperature_celsius'},
+                                {'label': 'fire intensity (kW/m2)', 'value': 'fire_intensity_kW_m2'},
+                                {'label': 'fuel mass (kg/m2)', 'value': 'fuel_mass_kg'},
+                                {'label': 'fuel moisture (% mass)', 'value': 'fuel_moisture_percentage'},
+                            ],
+                            value='temperature',  # Default value
+                            style={'width': '200px'},
+                            clearable=False,  # No "reset" button
+                            searchable=False
+                        ),
+                    ], className='box-section'),
+                    dcc.Graph(id='simulation-plot'),
+                    html.Div([
+                        html.H3('time passed', id='simulation-frame-time'),
+                    ], className='box-section'),
+                    # Simulation Controls (below the plot)
+                    html.Div([
+                        html.Button("Simulate", id="simulate-btn", className="button", n_clicks=0, disabled=False),
+                        html.Button("Reset", id="reset-btn", className="button", n_clicks=0, disabled=True),
+                        html.Br(),
+                        dcc.Slider(
+                            id="frame-slider",
+                            min=0,
+                            max=100,  # Example max frames
+                            step=1,
+                            marks={i: f"Frame {i}" for i in range(0, 101, 10)},
+                            value=0,
+                            disabled=True,  # Initially disabled until simulate is pressed
+                        ),
+                    ], className="box-section"),
+                ], className="simulation-controls")
+            ], className="box-section"),
+        ], className='simulation-output'),
+    ], className='simulation-wrap'),
+])
+
+
+root_is_first_plot = True
+
+
+# Upload
+@app.callback(
+    output=[
+        Output('output-data-upload-simulation', 'children'),
+        Output('upload-status-simulation', 'children'),
+        Output('uploaded-file-store-simulation', 'data'),
+        Output('output-data-upload-simulation', 'className'),
+        Output('upload-status-simulation', 'className'),
+    ],
+    inputs=[Input('upload-wfss-for-simulation', 'contents')],
+    state=[State('upload-wfss-for-simulation', 'filename')],
+    prevent_initial_call=True
+)
+def handle_file_upload(contents, filename):
+    global root_is_first_plot
+    if not contents or not filename:
+        return 'No file uploaded', '', None, 'error-message', 'error-message'
+
+    file_path = f"/tmp/{filename}"
+    read_and_store_dcc_file_at(contents, filename, file_path)
+    data_array = read_and_store_npz_contents(file_path)
+    root_is_first_plot = True
+
+    return (
+        "File uploaded successfully!",
+        f"Uploaded File: {filename}",
+        data_array,
+        "successful-message",
+        "successful-message"
+    )
+
+@app.callback(
+    output=[
+        Output('version-label-simulation', 'children'),
+        Output('dynamic-inputs-simulation', 'children'),
+    ],
+    inputs=[Input('uploaded-file-store-simulation', 'data')]
+)
+def update_dynamic_inputs(data_array):
+    if not data_array:
+        raise dash.exceptions.PreventUpdate
+
+    version = float(data_array["metadata"]["version"])
+    title = data_array["metadata"]['setup_title']
+    mod_settings = data_array["mod_settings"]
+
+    # Define your dynamic inputs here
+    input_elements = [
+        html.H3("Physical Properties"),
+    ]
+
+    for key, value in mod_settings.items():
+        input_elements.append(
+            html.Div([
+                html.Label(key),
+                dcc.Input(
+                    id={'type': 'setting-input', 'key': key},  # Important: use pattern-matching ID
+                    value=value,
+                    type='number',
+                    min=0
+                ),
+            ], className='input-row')
+        )
+
+    return f"version {version} | {title}", input_elements
+
+@app.callback(
+    output=[
+        Output('simulation-plot', 'figure'),
+        Output('store-igniting-cells', 'data'),
+        Output('simulation-frame-time', 'children'),
+    ],
+    inputs=[
+        Input('simulation-state', 'data'),
+        Input('sim-frame-store', 'data'),
+        Input('simulation-plot', 'relayoutData'),
+        Input('frame-slider', 'value'),
+        Input('uploaded-file-store-simulation', 'data'),
+        Input('data-type-dropdown-simulation', 'value'),
+    ],
+    state=[
+        State('store-igniting-cells', 'data'),
+    ],
+    prevent_initial_call=True
+)
+def update_plot_based_on_state(state_data, sim_frames, relayout_data, selected_frame, uploaded_data, data_shown, stored_ignition):
+    global fig, igniting_cells, X, Y, root_is_first_plot
+
+    trigger = ctx.triggered_id
+
+    if uploaded_data is None:
+        raise dash.exceptions.PreventUpdate
+
+    fig_updated = False
+
+    if state_data['state'] == 'running':
+        if sim_frames and data_shown in sim_frames:
+            frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
+            fig.data[2].z = frame_data
+            fig.data[2].pop('zmin', None)
+            fig.data[2].pop('zmax', None)
+            fig.data[2].colorscale = sim_frames[data_shown]["colormap"]
+            fig_updated = True
+        else:
+            raise dash.exceptions.PreventUpdate
+
+        time_passed_in_seconds = sim_frames["timestamps"][selected_frame]
+        days_p, hours_p, minutes_p, seconds_p = time_conversion.convert_seconds_to_dhms(time_passed_in_seconds)
+
+        return (
+            fig if fig_updated else dash.no_update,
+            stored_ignition,
+            f"time passed: {days_p}d {hours_p}h {minutes_p}m {seconds_p}s"
+        )
+
+    elif state_data['state'] == 'preparing':
+        if trigger == 'uploaded-file-store-simulation' and uploaded_data and root_is_first_plot:
+            root_is_first_plot = False
+            X = np.array(uploaded_data["x_deg_mesh"])
+            Y = np.array(uploaded_data["y_deg_mesh"])
+            height = np.array(uploaded_data["height"])
+            igniting_cells = np.zeros_like(height)
+
+            fig = make_subplots(rows=1, cols=2, subplot_titles=["Elevation (edit ignition on this one)", "Simulation"])
+            fig.add_trace(go.Heatmap(z=height, x=X[0], y=Y[:, 0], colorscale="Geyser"), row=1, col=1)
+            fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(opacity=0)), row=1, col=1)
+            fig.add_trace(go.Heatmap(z=igniting_cells, x=X[0], y=Y[:, 0], colorscale="hot"), row=1, col=2)
+            fig.update_layout(dragmode="select", xaxis2=dict(matches='x1'), yaxis2=dict(matches='y1'))
+
+            fig_updated = True
+
+        elif trigger == 'simulation-plot' and relayout_data and 'selections' in relayout_data:
+            selection = relayout_data['selections'][0]
+            if selection.get('xref') == 'x' and selection.get('yref') == 'y':
+                x0, x1 = selection['x0'], selection['x1']
+                y0, y1 = selection['y0'], selection['y1']
+                x_range = sorted([x0, x1])
+                y_range = sorted([y0, y1])
+                x_indices = np.where((X[0] >= x_range[0]) & (X[0] <= x_range[1]))[0]
+                y_indices = np.where((Y[:, 0] >= y_range[0]) & (Y[:, 0] <= y_range[1]))[0]
+                igniting_cells[np.ix_(y_indices, x_indices)] = 1
+
+                fig.data[2].z = igniting_cells
+                fig.data[2].zmin = 0
+                fig.data[2].zmax = 1
+
+                fig_updated = True
+
+        return (
+            fig if fig_updated else dash.no_update,
+            igniting_cells.tolist(),
+            dash.no_update
+        )
+    
+    return dash.no_update, dash.no_update, dash.no_update
+
+# Update slider range
+@app.callback(
+    output=[
+        Output('frame-slider', 'min'),
+        Output('frame-slider', 'max'),
+    ],
+    inputs=[Input('sim-frame-store', 'data')],
+    prevent_initial_call=True
+)
+def update_slider_range(sim_frames):
+    if not sim_frames or "timestamps" not in sim_frames:
+        raise dash.exceptions.PreventUpdate
+
+    total_frames = len(sim_frames["timestamps"])
+    return 0, total_frames - 1
+
+# simulation buttons logic
+@app.callback(
+    output=[
+        Output('simulate-btn', 'disabled'),
+        Output('reset-btn', 'disabled'),
+        Output('frame-slider', 'disabled'),
+        Output('frame-slider', 'value'),
+        Output('simulation-state', 'data'),
+        Output('all-inputs-simulation', 'className')
+    ],
+    inputs=[
+        Input('simulate-btn', 'n_clicks'),
+        Input('reset-btn', 'n_clicks'),
+    ],
+    state=[State('simulation-state', 'data')],
+    prevent_initial_call=True
+)
+def handle_simulation_buttons(sim_clicks, reset_clicks, current_state):
+    trigger = ctx.triggered_id
+
+    if trigger == 'simulate-btn' and sim_clicks > 0:
+        return True, False, False, 0, {'state': 'running', 'frame': 0}, 'all-inputs-simulation-disabled'
+
+    if trigger == 'reset-btn' and reset_clicks > 0:
+        return False, True, True, 0, {'state': 'reset', 'frame': 0}, 'all-inputs-simulation'
+
+    raise dash.exceptions.PreventUpdate
+
+@app.callback(
+    [Output('sim-frame-store', 'data'),
+     Output('frame-interval', 'disabled')],
+    Input('simulate-btn', 'n_clicks'),
+    [State('uploaded-file-store-simulation', 'data'),
+     State('store-igniting-cells', 'data'),
+     State('settings-store-simulation', 'data'),
+     State('simulation-setup-settings-store', 'data')],
+    prevent_initial_call=True
+)
+def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation_dt_t_data):
+    if not sim_data or not igniting_cells:
+        raise dash.exceptions.PreventUpdate
+        
+    fire_simulation.setup(
+        np.array(sim_data['height'], dtype=float),
+        np.array(sim_data['x_deg_mesh'], dtype=float),
+        np.array(sim_data['y_deg_mesh'], dtype=float),
+        np.array(sim_data['temperature'], dtype=float),
+        np.array(sim_data['fuel_moisture_content'], dtype=float),
+        np.array(sim_data['fuel_mass'], dtype=float),
+        np.array(sim_data['unburnable_mass'], dtype=float),
+        np.array(sim_data['wind_x'], dtype=float),
+        np.array(sim_data['wind_y'], dtype=float),
+        dict(sim_data['unmod_settings']),
+        dict(settings_data),
+        dict(sim_data['metadata']),
+        np.array(igniting_cells, dtype=float)
+    )
+
+    fire_simulation.simulate(simulation_dt_t_data['time_step'], simulation_dt_t_data["total_time"])
+    frames = fire_simulation.recorderHolder.data
+
+    return frames, False
+
+@app.callback(
+    Output('settings-store-simulation', 'data'),
+    Input('uploaded-file-store-simulation', 'data'),
+    Input({'type': 'setting-input', 'key': ALL}, 'value'),
+    State({'type': 'setting-input', 'key': ALL}, 'id'),  # <--- get the full ID
+)
+def collect_settings(data, values, ids):
+    trigger = ctx.triggered_id
+    if trigger == 'uploaded-file-store-simulation':
+        return data['mod_settings']
+
+    else:
+        if not values or not ids:
+            raise dash.exceptions.PreventUpdate
+
+        # Extract keys from the 'id' dictionaries
+        keys = [id_obj['key'] for id_obj in ids]
+        return {k: v for k, v in zip(keys, values)}
+
+@app.callback(
+    Output('simulation-setup-settings-store', 'data'),
+    Input('simulation-time-step-input', 'value'),
+    Input('simulation-total-time-input', 'value'),
+)
+
+def set_simulation_its(time_step, total_time):
+    return {'time_step': time_step, 'total_time': total_time}

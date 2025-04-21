@@ -1,0 +1,48 @@
+.navbar {
+    background-color: #36454F;  /* Deep Blue-Gray */
+    padding: 0px 0px;
+    display: flex;
+    justify-content: space-between;  /* Push items apart: links left, title right */
+    align-items: center;  /* Vertically center the items */
+    border-radius: 0px;
+    margin: 0px 0px;
+}
+
+.navbar H1 {
+    color: #FF8F00;  /* Bright Orange Text */
+    font-size: 24px;
+    font-weight: bold;
+    padding: 0px 20px 0px 0px;
+}
+
+
+/* Styling for the navbar links */
+.nav-links {
+    display: flex;  /* Align links horizontally */
+    gap: 0px;  /* Space between the links */
+}
+
+.nav-link {
+    color: #FF8F00;  /* Bright Orange Text */
+    font-size: 18px;
+    text-decoration: none;  /* Remove underline */
+    font-weight: normal;
+    padding: 24px 20px 24px 20px;
+    margin: 0px 0px;
+}
+
+.nav-link-active {
+    color: #36454F;
+    background-color: #FF8F00;
+    font-size: 18px;
+    text-decoration: none;  /* Remove underline */
+    font-weight: normal;
+    padding: 24px 20px 24px 20px;
+    margin: 0px 0px;
+}
+
+/* Hover effect for links */
+.nav-link:hover {
+    background-color: #bf6d02;
+    color: #36454F; 
+}

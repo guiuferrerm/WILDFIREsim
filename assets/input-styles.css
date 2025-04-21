@@ -1,0 +1,53 @@
+/* File Upload Area (Drag & Drop) */
+.file-upload {
+    border: 2px dashed #FF8F00;  /* Orange dashed border */
+    border-radius: 0px;
+    padding: 30px;
+    background-color: #FFF8E1;  /* Light yellow background */
+    cursor: pointer;
+    text-align: center;
+    font-size: 16px;
+    color: #36454F;  /* Deep Blue-Gray text */
+    transition: background-color 0.3s ease;
+}
+
+.file-upload:hover {
+    background-color: #f9f3e2;  /* Slightly darker background */
+}
+
+.input-row {
+    display: flex;  /* Aligns the children in a row */
+    justify-content: flex-start;  /* Distribute the items across the row */
+    margin-bottom: 10px;  /* Space between each row */
+    gap: 10px;
+}
+
+.input-row label {
+    font-size: 12px;
+    color: #36454F;  /* Deep Blue-Gray for labels */
+    width: 100px;  /* Fixed width for labels */
+    height: 20px;
+    padding: 7px;
+    margin: 0px;
+    word-wrap: break-word;  /* Allow the label to wrap to the next line if it overflows */
+    white-space: normal;    /* Allow the text to break and wrap into multiple lines */
+}
+
+.input-row input {
+    width: 100px;  /* Ensure all inputs are the same width */
+    height: 20px;
+    padding: 7px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin: 0px;
+}
+
+.simulation-input {
+    width: 300px;
+    height: 15px;
+}
+
+.simulation-output {
+    width: 900px;
+}

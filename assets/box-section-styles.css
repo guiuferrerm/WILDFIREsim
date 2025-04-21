@@ -1,0 +1,26 @@
+.box-section {
+    background-color: #e8eef2;  /* Light gray background */
+    padding: 20px;
+    border-radius: 0px;
+    margin: 5px 5px 10px 5px;
+}
+
+.box-section h4 {
+    font-size: 13px;
+    color: #36454F;  /* Deep Blue-Gray */
+    margin: 0px 0px 10px 5px;
+    color: #28a745;  /* Green for success message */
+}
+
+/* Subsection Titles */
+.box-section h3 {
+    font-size: 20px;
+    color: #36454F;  /* Deep Blue-Gray */
+    margin: 0px 0px 20px 0px;
+}
+
+.box-section h2 {
+    color: #36454F;
+    font-size: 22px;
+    margin: 0px 0px 20px 0px;
+}

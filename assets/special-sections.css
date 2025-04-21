@@ -1,0 +1,5 @@
+.all-inputs-simulation-disabled {
+    pointer-events: none;   /* Disable all interaction */
+    opacity: 0.5;           /* Make it look disabled */
+    filter: grayscale(100%);
+}
