@@ -52,6 +52,10 @@ layout = html.Div([
                             html.Label("total_time"),
                             dcc.Input(id="simulation-total-time-input", value=3600, type='number'),
                         ], className="input-row"),
+                        html.Div([
+                            html.Label("record_interval"),
+                            dcc.Input(id="simulation-record-interval-input", value=900, type='number'),
+                        ], className="input-row"),
                     ], id='static-inputs-simulation'),
                     html.Div([
                         
@@ -319,8 +323,11 @@ def handle_simulation_buttons(sim_clicks, reset_clicks, current_state):
 def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation_dt_t_data):
     if not sim_data or not igniting_cells:
         raise dash.exceptions.PreventUpdate
+    
+    simulation_grid = fire_simulation.SimGrid()
+    frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
         
-    fire_simulation.setup(
+    simulation_grid.setup(
         np.array(sim_data['height'], dtype=float),
         np.array(sim_data['x_deg_mesh'], dtype=float),
         np.array(sim_data['y_deg_mesh'], dtype=float),
@@ -335,9 +342,29 @@ def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation
         dict(sim_data['metadata']),
         np.array(igniting_cells, dtype=float)
     )
+    
+    totalTime = simulation_dt_t_data["total_time"]
+    deltaTime = simulation_dt_t_data['time_step']
+    recordInterval = simulation_dt_t_data['record_interval']
 
-    fire_simulation.simulate(simulation_dt_t_data['time_step'], simulation_dt_t_data["total_time"])
-    frames = fire_simulation.recorderHolder.data
+    elapsedTime = 0  # initialize a variable to keep track of time
+    elapsedTimeForPlotRecord = 0
+
+    simulation_grid.runSimStep(1)
+    elapsedTime += 1
+    elapsedTimeForPlotRecord += 1
+    frames_recorder.record(1)
+    
+    while elapsedTime < totalTime:
+        simulation_grid.runSimStep(deltaTime)
+        elapsedTime += deltaTime
+        elapsedTimeForPlotRecord += deltaTime
+        
+        if elapsedTimeForPlotRecord >= (recordInterval):  # Check if 30 minutes (1800 seconds) have passed
+            frames_recorder.record(elapsedTime)
+            elapsedTimeForPlotRecord = 0  # reset the counter after recording
+            
+    frames = frames_recorder.data
 
     return frames, False
 
@@ -364,7 +391,8 @@ def collect_settings(data, values, ids):
     Output('simulation-setup-settings-store', 'data'),
     Input('simulation-time-step-input', 'value'),
     Input('simulation-total-time-input', 'value'),
+    Input('simulation-record-interval-input', 'value')
 )
 
-def set_simulation_its(time_step, total_time):
-    return {'time_step': time_step, 'total_time': total_time}
+def set_simulation_its(time_step, total_time, record_interval):
+    return {'time_step': time_step, 'total_time': total_time, "record_interval": record_interval}

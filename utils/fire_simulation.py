@@ -3,6 +3,7 @@ import math
 from scipy.signal import convolve2d
 
 class SimGrid:
+    # GRID SETUP, CREATION AND RESET
     def __init__(self):
         # Geometry
         self.cellSize = 0
@@ -64,12 +65,98 @@ class SimGrid:
     def reset(self):
         self.__init__()
 
+    def setup(self,
+            heightArray, XmeshArray, YmeshArray, temperatureArray, fuelMoistureArray, fuelMassArray, unburnableMassArray, windXArray, windYArray,
+            unmod_settings, mod_settings, metadata,
+            initial_igniting_cells):
+
+        # Grid structure
+        self.cellSize = float(unmod_settings["cell_size"])
+        self.cellArea = self.cellSize ** 2
+        self.gridSizeX = int(unmod_settings["array_dim_x"])
+        self.gridSizeY = int(unmod_settings["array_dim_y"])
+
+        self.Xmesh = np.copy(XmeshArray)
+        self.Ymesh = np.copy(YmeshArray)
+        self.cellHeight = np.copy(heightArray.astype(np.int32))
+
+        # Core arrays
+        self.fuelMass = np.copy(fuelMassArray)
+        self.unburnableMass = np.copy(unburnableMassArray)
+        self.waterMass = np.copy(fuelMassArray * (fuelMoistureArray / 100.0))
+
+        self.windField = np.zeros((self.gridSizeY, self.gridSizeX, 2))
+        self.windField[:, :, 0] = np.copy(windXArray)
+        self.windField[:, :, 1] = np.copy(windYArray)
+
+        self.cellTemperature = np.copy(temperatureArray)
+        self.fuelTemperature = np.copy(temperatureArray)
+        self.waterTemperature = np.copy(temperatureArray)
+        self.unburnableTemperature = np.copy(temperatureArray)
+
+        # Constants: unmodified
+        self.waterSpecificHeat = unmod_settings["water_specific_heat"]
+        self.waterLatentHeat = unmod_settings["water_latent_heat"]
+        self.waterBoilingTemp = unmod_settings["water_boiling_temp"]
+        self.stefanBoltzmannCt = unmod_settings["stefan_boltzmann_ct"]
+
+        # Constants: modified
+        self.fuelIgnitingTemp = mod_settings["fuel_igniting_temp"]
+        self.fuelSpecificHeat = mod_settings["fuel_specific_heat"]
+        self.fuelCalorificValue = mod_settings["fuel_calorific_value"]
+        self.unburnableSpecificHeat = mod_settings["unburnable_specific_heat"]
+        self.ambientTemp = mod_settings["ambient_temp"]
+
+        self.boundaryMass = mod_settings["boundary_avg_mass"]
+        self.boundaryCe = mod_settings["boundary_avg_specific_heat"]
+        self.boundaryWindVector = np.array([
+            mod_settings["boundary_avg_wind_vector_x"],
+            mod_settings["boundary_avg_wind_vector_y"]
+        ])
+
+        self.heatTransferRate = mod_settings["heat_transfer_rate"]
+        self.slopeEffectFactor = mod_settings["slope_effect_factor"]
+        self.windAffectCt = mod_settings["wind_effect_constant"]
+        self.fuelBurnRate = mod_settings["fuel_burn_rate"]
+        self.heatLossFactor = mod_settings["heat_loss_factor"]
+
+        # Computed values
+        self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass
+        self.cellSpecificHeat = (
+            self.fuelMass * self.fuelSpecificHeat +
+            self.waterMass * self.waterSpecificHeat +
+            self.unburnableMass * self.unburnableSpecificHeat
+        ) / self.cellTotalMass
+
+        self.cellThermalE = self.cellSpecificHeat * self.cellTemperature * self.cellTotalMass
+        self.fuelThermalEnergy = self.fuelSpecificHeat * self.fuelTemperature * self.fuelMass
+        self.waterThermalEnergy = self.waterSpecificHeat * self.waterTemperature * self.waterMass
+        self.unburnableThermalEnergy = self.unburnableSpecificHeat * self.unburnableTemperature * self.unburnableMass
+
+        self.fireIntensity = np.zeros((self.gridSizeY, self.gridSizeX))
+
+        self.cellTemperature = np.where(initial_igniting_cells == 1, 1200, self.cellTemperature)
+        self.updateCellsThermalEBasedOnTemp()
+
+    # GRID SIMULATION
+    def runSimStep(self, dt=1):
+        self.specialModifications()
+        self.loseHeat(dt)
+        self.transferHeat(dt)
+        self.updateTempsAndWaterContent()
+        self.burn(dt)
+
+    # GRID "STEP FUNCTIONS" FUNCTIONS
     def updateCellsThermalEBasedOnTemp(self):
         self.cellThermalE = self.cellSpecificHeat*self.cellTemperature*self.cellTotalMass # kJ / m**2
     
     def updateGlobalCellMasses(self):
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass # kg / m**2
         self.cellSpecificHeat = (self.unburnableMass*self.unburnableSpecificHeat + self.fuelMass*self.fuelSpecificHeat + self.waterMass*self.waterSpecificHeat)/self.cellTotalMass # kJ / kg*K
+
+    # GRID STEP FUNCTIONS
+    def specialModifications(self):
+        pass
 
     def transferHeat(self, dT):
         '''
@@ -233,7 +320,7 @@ class Toolbox():
         return t-273.15
 
 class FramesRecorder():
-    def __init__(self):
+    def __init__(self, gridHolder):
         self.data = {
             "timestamps": [],
             "fuel_moisture_percentage": {"data": [], 'colormap': 'blues'},
@@ -242,119 +329,35 @@ class FramesRecorder():
             "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r'}
         }
 
+        self.referenceGrid = gridHolder
+
+    def reset(self):
+        self.__init__()
+
     def record(self, second):
-        global gridHolder
         self.data["timestamps"].append(second)
-        self.data['fuel_moisture_percentage']["data"].append(np.copy((gridHolder.waterMass/gridHolder.fuelMass)*100))
-        self.data['temperature_celsius']["data"].append(np.copy(gridHolder.cellTemperature)-273.15)
-        self.data['fire_intensity_kW_m2']["data"].append(np.copy(gridHolder.fireIntensity))
-        self.data["fuel_mass_kg"]["data"].append(np.copy(gridHolder.fuelMass))
+        self.data['fuel_moisture_percentage']["data"].append(np.copy((self.referenceGrid.waterMass/self.referenceGrid.fuelMass)*100))
+        self.data['temperature_celsius']["data"].append(np.copy(self.referenceGrid.cellTemperature)-273.15)
+        self.data['fire_intensity_kW_m2']["data"].append(np.copy(self.referenceGrid.fireIntensity))
+        self.data["fuel_mass_kg"]["data"].append(np.copy(self.referenceGrid.fuelMass))
+    
+# def simulate(deltaTime, totalTime):
+#     global gridHolder, recorderHolder
+
+#     elapsedTime = 0  # initialize a variable to keep track of time
+#     elapsedTimeForPlotRecord = 0
+
+#     simStep(1)
+#     elapsedTime += 1
+#     elapsedTimeForPlotRecord += 1
+#     recorderHolder.record(1)
+    
+#     while elapsedTime < totalTime:
+#         simStep(deltaTime)
+#         elapsedTime += deltaTime
+#         elapsedTimeForPlotRecord += deltaTime
         
-def setup(heightArray, XmeshArray, YmeshArray, temperatureArray, fuelMoistureArray, fuelMassArray, unburnableMassArray, windXArray, windYArray,
-          unmod_settings, mod_settings, metadata,
-          initial_igniting_cells):
-    
-    global gridHolder, recorderHolder
-
-    gridHolder = SimGrid()
-    recorderHolder = FramesRecorder()
-
-    # Grid structure
-    gridHolder.cellSize = float(unmod_settings["cell_size"])
-    gridHolder.cellArea = gridHolder.cellSize ** 2
-    gridHolder.gridSizeX = int(unmod_settings["array_dim_x"])
-    gridHolder.gridSizeY = int(unmod_settings["array_dim_y"])
-
-    gridHolder.Xmesh = np.copy(XmeshArray)
-    gridHolder.Ymesh = np.copy(YmeshArray)
-    gridHolder.cellHeight = np.copy(heightArray.astype(np.int32))
-
-    # Core arrays
-    gridHolder.fuelMass = np.copy(fuelMassArray)
-    gridHolder.unburnableMass = np.copy(unburnableMassArray)
-    gridHolder.waterMass = np.copy(fuelMassArray * (fuelMoistureArray / 100.0))
-
-    gridHolder.windField = np.zeros((gridHolder.gridSizeY, gridHolder.gridSizeX, 2))
-    gridHolder.windField[:, :, 0] = np.copy(windXArray)
-    gridHolder.windField[:, :, 1] = np.copy(windYArray)
-
-    gridHolder.cellTemperature = np.copy(temperatureArray)
-    gridHolder.fuelTemperature = np.copy(temperatureArray)
-    gridHolder.waterTemperature = np.copy(temperatureArray)
-    gridHolder.unburnableTemperature = np.copy(temperatureArray)
-
-    # Constants: unmodified
-    gridHolder.waterSpecificHeat = unmod_settings["water_specific_heat"]
-    gridHolder.waterLatentHeat = unmod_settings["water_latent_heat"]
-    gridHolder.waterBoilingTemp = unmod_settings["water_boiling_temp"]
-    gridHolder.stefanBoltzmannCt = unmod_settings["stefan_boltzmann_ct"]
-
-    # Constants: modified
-    gridHolder.fuelIgnitingTemp = mod_settings["fuel_igniting_temp"]
-    gridHolder.fuelSpecificHeat = mod_settings["fuel_specific_heat"]
-    gridHolder.fuelCalorificValue = mod_settings["fuel_calorific_value"]
-    gridHolder.unburnableSpecificHeat = mod_settings["unburnable_specific_heat"]
-    gridHolder.ambientTemp = mod_settings["ambient_temp"]
-
-    gridHolder.boundaryMass = mod_settings["boundary_avg_mass"]
-    gridHolder.boundaryCe = mod_settings["boundary_avg_specific_heat"]
-    gridHolder.boundaryWindVector = np.array([
-        mod_settings["boundary_avg_wind_vector_x"],
-        mod_settings["boundary_avg_wind_vector_y"]
-    ])
-
-    gridHolder.heatTransferRate = mod_settings["heat_transfer_rate"]
-    gridHolder.slopeEffectFactor = mod_settings["slope_effect_factor"]
-    gridHolder.windAffectCt = mod_settings["wind_effect_constant"]
-    gridHolder.fuelBurnRate = mod_settings["fuel_burn_rate"]
-    gridHolder.heatLossFactor = mod_settings["heat_loss_factor"]
-
-    # Computed values
-    gridHolder.cellTotalMass = gridHolder.fuelMass + gridHolder.waterMass + gridHolder.unburnableMass
-    gridHolder.cellSpecificHeat = (
-        gridHolder.fuelMass * gridHolder.fuelSpecificHeat +
-        gridHolder.waterMass * gridHolder.waterSpecificHeat +
-        gridHolder.unburnableMass * gridHolder.unburnableSpecificHeat
-    ) / gridHolder.cellTotalMass
-
-    gridHolder.cellThermalE = gridHolder.cellSpecificHeat * gridHolder.cellTemperature * gridHolder.cellTotalMass
-    gridHolder.fuelThermalEnergy = gridHolder.fuelSpecificHeat * gridHolder.fuelTemperature * gridHolder.fuelMass
-    gridHolder.waterThermalEnergy = gridHolder.waterSpecificHeat * gridHolder.waterTemperature * gridHolder.waterMass
-    gridHolder.unburnableThermalEnergy = gridHolder.unburnableSpecificHeat * gridHolder.unburnableTemperature * gridHolder.unburnableMass
-
-    gridHolder.fireIntensity = np.zeros((gridHolder.gridSizeY, gridHolder.gridSizeX))
-
-    gridHolder.cellTemperature = np.where(initial_igniting_cells == 1, 1200, gridHolder.cellTemperature)
-    gridHolder.updateCellsThermalEBasedOnTemp()
-    
-def simStep(dt=1):
-    global gridHolder
-    specialModifications()
-    gridHolder.loseHeat(dt)
-    gridHolder.transferHeat(dt)
-    gridHolder.updateTempsAndWaterContent()
-    gridHolder.burn(dt)
-
-def specialModifications():
-    pass
-
-def simulate(deltaTime, totalTime):
-    global gridHolder, recorderHolder
-
-    elapsedTime = 0  # initialize a variable to keep track of time
-    elapsedTimeForPlotRecord = 0
-
-    simStep(1)
-    elapsedTime += 1
-    elapsedTimeForPlotRecord += 1
-    recorderHolder.record(1)
-    
-    while elapsedTime < totalTime:
-        simStep(deltaTime)
-        elapsedTime += deltaTime
-        elapsedTimeForPlotRecord += deltaTime
-        
-        if elapsedTimeForPlotRecord >= (60*30):  # Check if 30 minutes (1800 seconds) have passed
-            recorderHolder.record(elapsedTime)
-            elapsedTimeForPlotRecord = 0  # reset the counter after recording
+#         if elapsedTimeForPlotRecord >= (60*30):  # Check if 30 minutes (1800 seconds) have passed
+#             recorderHolder.record(elapsedTime)
+#             elapsedTimeForPlotRecord = 0  # reset the counter after recording
         
