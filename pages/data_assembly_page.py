@@ -33,31 +33,31 @@ layout = html.Div([
             # Row for North inputs
             html.Div([
                 html.Label('Origin N (latitude):'),
-                dcc.Input(id='originN', type='number', value=37.0, step=0.01),
+                dcc.Input(id='originN', type='number', value=37.0, step=0.0001),
 
                 html.Label('Min N (latitude):'),
-                dcc.Input(id='minN', type='number', value=37.0, step=0.01),
+                dcc.Input(id='minN', type='number', value=37.0, step=0.0001),
 
                 html.Label('Max N (latitude):'),
-                dcc.Input(id='maxN', type='number', value=38.0, step=0.01),
+                dcc.Input(id='maxN', type='number', value=38.0, step=0.0001),
             ], className="input-row"),
 
             # Row for East inputs
             html.Div([
                 html.Label('Origin E (longitude):'),
-                dcc.Input(id='originE', type='number', value=-8.0, step=0.01),
+                dcc.Input(id='originE', type='number', value=-8.0, step=0.0001),
 
                 html.Label('Min E (longitude):'),
-                dcc.Input(id='minE', type='number', value=-8.0, step=0.01),
+                dcc.Input(id='minE', type='number', value=-8.0, step=0.0001),
 
                 html.Label('Max E (longitude):'),
-                dcc.Input(id='maxE', type='number', value=-7.0, step=0.01),
+                dcc.Input(id='maxE', type='number', value=-7.0, step=0.0001),
             ], className="input-row"),
 
             # Row for Arcsec Interval
             html.Div([
                 html.Label('Arcsec Interval:'),
-                dcc.Input(id='arcsecInterval', type='number', value=3, step=0.01),
+                dcc.Input(id='arcsecInterval', type='number', value=3, step=0.0001),
             ], className="input-row"),
 
             # Button to trigger processing
@@ -72,7 +72,7 @@ layout = html.Div([
 
         # Dropdown for selecting data type (temperature, humidity, etc.)
         html.Div([
-            dcc.Input(placeholder="property value",id='data-mod-value', type='number', value=0, step=0.01),
+            dcc.Input(placeholder="property value",id='data-mod-value', type='number', value=0, step=0.0001),
             html.Label("K", id="data-mod-units"),
             dcc.Dropdown(
                 id='data-type-dropdown',

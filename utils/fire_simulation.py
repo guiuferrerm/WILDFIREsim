@@ -14,6 +14,11 @@ class SimGrid:
         self.Ymesh = None
         self.cellHeight = None
 
+        # initial conditions
+        self.initialConditions = {
+            'cellTemperature': None,
+        }
+
         # Fuel
         self.fuelIgnitingTemp = 0
         self.fuelSpecificHeat = 0
@@ -89,6 +94,7 @@ class SimGrid:
         self.windField[:, :, 0] = np.copy(windXArray)
         self.windField[:, :, 1] = np.copy(windYArray)
 
+        self.initialConditions['cellTemperature'] = np.copy(temperatureArray)
         self.cellTemperature = np.copy(temperatureArray)
         self.fuelTemperature = np.copy(temperatureArray)
         self.waterTemperature = np.copy(temperatureArray)
@@ -287,7 +293,7 @@ class SimGrid:
 
     def loseHeat(self, dT):
         # The temperature decay factor towards ambient temperature
-        self.cellTemperature = self.ambientTemp + (self.cellTemperature - self.ambientTemp) * (self.heatLossFactor ** dT)
+        self.cellTemperature = self.initialConditions['cellTemperature'] + (self.cellTemperature - self.initialConditions['cellTemperature']) * (self.heatLossFactor ** dT)
         
         # Update thermal behavior based on the new temperature
         self.updateCellsThermalEBasedOnTemp()
