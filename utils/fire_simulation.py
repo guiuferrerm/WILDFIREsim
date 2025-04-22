@@ -91,8 +91,8 @@ class SimGrid:
         self.waterMass = np.copy(fuelMassArray * (fuelMoistureArray / 100.0))
 
         self.windField = np.zeros((self.gridSizeY, self.gridSizeX, 2))
-        self.windField[:, :, 0] = np.copy(windXArray)
-        self.windField[:, :, 1] = np.copy(windYArray)
+        self.windField[:, :, 1] = np.copy(windXArray)
+        self.windField[:, :, 0] = np.copy(windYArray)
 
         self.initialConditions['cellTemperature'] = np.copy(temperatureArray)
         self.cellTemperature = np.copy(temperatureArray)
