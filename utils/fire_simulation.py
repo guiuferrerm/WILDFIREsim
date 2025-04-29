@@ -259,8 +259,11 @@ class SimGrid:
             windEffectCoef = np.exp(self.windAffectCt * (shifted_wind_lenght / (self.cellSize*ops_vector_lenght)) * dotProduct)
             
             qTransfer = idealQTransfers * windEffectCoef + idealQTransfers * windEffectCoef * (deltaHeight/(np.sqrt(deltaHeight**2 + ops_vector_lenght**2))) * self.slopeEffectFactor
+
+            dist = ops_vector_lenght*self.cellSize
+            distQTransfer = qTransfer/np.sqrt(dist)
             
-            newTE += qTransfer * dT
+            newTE += distQTransfer * dT
         
         # update real values with temporary computation variables
         self.cellThermalE = np.copy(newTE)
