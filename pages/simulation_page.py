@@ -83,6 +83,17 @@ layout = html.Div([
                             clearable=False,  # No "reset" button
                             searchable=False
                         ),
+                        dcc.Dropdown(
+                            id='meshgrid-type-dropdown-simulation',
+                            options=[
+                                {'label': 'lat/lon degrees', 'value': 'meshgridlatlondeg'},
+                                {'label': 'meters', 'value': 'meshgridmeters'},
+                            ],
+                            value='meshgridlatlondeg',  # Default value
+                            style={'width': '200px'},
+                            clearable=False,  # No "reset" button
+                            searchable=False
+                        ),
                     ], className='box-section'),
                     dcc.Graph(id='simulation-plot'),
                     html.Div([
@@ -195,6 +206,7 @@ def update_dynamic_inputs(data_array):
         Input('frame-slider', 'value'),
         Input('uploaded-file-store-simulation', 'data'),
         Input('data-type-dropdown-simulation', 'value'),
+        Input('meshgrid-type-dropdown-simulation', 'value'),
     ],
     state=[
         State('store-igniting-cells', 'data'),
@@ -204,7 +216,9 @@ def update_dynamic_inputs(data_array):
     ],
     prevent_initial_call=True
 )
-def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, selected_frame, uploaded_data, data_shown, stored_ignition, simulation_status, is_first_plot, fig_store):
+def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, selected_frame, uploaded_data, data_shown, meshgrid_type, 
+                               stored_ignition, simulation_status, is_first_plot, fig_store):
+
     global igniting_cells, X, Y
 
     trigger = ctx.triggered_id
@@ -226,6 +240,10 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
         
         if sim_frames and data_shown in sim_frames:
             frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
+            fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+            fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+            fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+            fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
             fig.data[2].z = frame_data
             fig.data[2].zmin = sim_frames[data_shown]["min"]
             fig.data[2].zmax = sim_frames[data_shown]["max"]
@@ -247,6 +265,11 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
         )
     
     elif simulation_status['state'] == 'finished':
+        fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+        fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+        fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+        fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+        
         return (
             dash.no_update,
             dash.no_update,
@@ -259,15 +282,17 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
     elif simulation_status['state'] == 'preparing':
         if trigger == 'uploaded-file-store-simulation' and uploaded_data and is_first_plot:
             is_first_plot = False
-            X = np.array(uploaded_data["x_deg_mesh"])
-            Y = np.array(uploaded_data["y_deg_mesh"])
+
+            X = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+            Y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+            
             height = np.array(uploaded_data["height"])
             igniting_cells = np.zeros_like(height)
 
             fig = make_subplots(rows=1, cols=2, subplot_titles=["Elevation (edit ignition on this one)", "Simulation"])
-            fig.add_trace(go.Heatmap(z=height, x=X[0], y=Y[:, 0], colorscale="Geyser", showscale=False), row=1, col=1)
+            fig.add_trace(go.Heatmap(z=height, x=X, y=Y, colorscale="Geyser", showscale=False), row=1, col=1)
             fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(opacity=0)), row=1, col=1)
-            fig.add_trace(go.Heatmap(z=igniting_cells, x=X[0], y=Y[:, 0], colorscale="hot"), row=1, col=2)
+            fig.add_trace(go.Heatmap(z=igniting_cells, x=X, y=Y, colorscale="hot"), row=1, col=2)
             fig.update_layout(dragmode="select", xaxis2=dict(matches='x1'), yaxis2=dict(matches='y1'))
 
             fig_updated = True
@@ -279,8 +304,8 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                 y0, y1 = selection['y0'], selection['y1']
                 x_range = sorted([x0, x1])
                 y_range = sorted([y0, y1])
-                x_indices = np.where((X[0] >= x_range[0]) & (X[0] <= x_range[1]))[0]
-                y_indices = np.where((Y[:, 0] >= y_range[0]) & (Y[:, 0] <= y_range[1]))[0]
+                x_indices = np.where((X >= x_range[0]) & (X <= x_range[1]))[0]
+                y_indices = np.where((Y >= y_range[0]) & (Y <= y_range[1]))[0]
                 igniting_cells[np.ix_(y_indices, x_indices)] = 1
 
                 fig.data[2].z = igniting_cells
@@ -288,6 +313,15 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                 fig.data[2].zmax = 1
 
                 fig_updated = True
+        
+        else:
+            fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+            fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+            fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+            fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+            fig.data[2].z = igniting_cells
+
+            fig_updated = True
 
         return (
             fig if fig_updated else dash.no_update,

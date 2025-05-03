@@ -168,7 +168,7 @@ def update_plot(n_clicks, dataType, relayout_data, mod_n_clicks,
                             originE, minE, maxE, 
                             arcsecInterval):
     
-    global fig, dataArrays, Xmesh, Ymesh, heightData
+    global fig, dataArrays, Xmesh, Ymesh, heightData, meterMeshGrid
 
     trigger_id = ctx.triggered_id
 
@@ -327,12 +327,16 @@ def update_units_label(dataType):
 )
 
 def download_file(n_clicks, fileName, setupName):
-    global dataArrays, heightData, Xmesh, Ymesh
+    global dataArrays, heightData, Xmesh, Ymesh, meterMeshGrid
+
+    xMeshM, yMeshM = meterMeshGrid
     
     arrays = {
         "height": np.copy(heightData),
         "x_deg_mesh": np.copy(Xmesh),
         "y_deg_mesh": np.copy(Ymesh),
+        "x_meter_mesh": np.copy(xMeshM),
+        "y_meter_mesh": np.copy(yMeshM),
         "temperature": np.copy(dataArrays["temperature"]["array"]),
         "fuel_moisture_content": np.copy(dataArrays["fuel_moisture_content"]["array"]),
         "fuel_mass": np.copy(dataArrays["fuel_mass"]["array"]),
