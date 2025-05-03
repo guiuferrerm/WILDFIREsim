@@ -56,7 +56,7 @@ layout = html.Div([
 
             # Row for Arcsec Interval
             html.Div([
-                html.Label('Arcsec Interval:'),
+                html.Label('Arcsec Interval (30m/arcsec):'),
                 dcc.Input(id='arcsecInterval', type='number', value=3, step=0.0001),
             ], className="input-row"),
 
@@ -341,7 +341,7 @@ def download_file(n_clicks, fileName, setupName):
         "wind_y": np.copy(dataArrays["wind_y"]["array"]),
 
         "unmod_settings": {
-            "cell_size": 90.0,
+            "cell_size": round( ((Xmesh[0][-1]-Xmesh[0][0])/len(Xmesh[0]))*3600*30, 3 ),
             "array_dim_x": int(heightData.shape[1]),
             "array_dim_y": int(heightData.shape[0]),
 
