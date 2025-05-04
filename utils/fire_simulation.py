@@ -261,7 +261,7 @@ class SimGrid:
             qTransfer = idealQTransfers * windEffectCoef + idealQTransfers * windEffectCoef * (deltaHeight/(np.sqrt(deltaHeight**2 + ops_vector_lenght**2))) * self.slopeEffectFactor
 
             dist = ops_vector_lenght*self.cellSize
-            distQTransfer = qTransfer/np.sqrt(dist)
+            distQTransfer = qTransfer/dist
             
             newTE += distQTransfer * dT
         
