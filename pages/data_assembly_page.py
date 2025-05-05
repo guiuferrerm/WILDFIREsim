@@ -373,7 +373,8 @@ def download_file(n_clicks, fileName, setupName):
             "slope_effect_factor": 0.2,
             "wind_effect_constant": 1,
             "fuel_burn_rate": 0.001,
-            "heat_loss_factor": 0.99,
+            "heat_loss_factor": 0.999,
+            "transfer_heat_loss_factor": 0.7,
             
         },
 

@@ -63,6 +63,7 @@ class SimGrid:
         self.slopeEffectFactor = 0
         self.windAffectCt = 0
         self.heatLossFactor = 0
+        self.transferHeatLossFactor = 0
 
         # Radiation
         self.stefanBoltzmannCt = 0
@@ -125,6 +126,7 @@ class SimGrid:
         self.windAffectCt = mod_settings["wind_effect_constant"]
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
         self.heatLossFactor = mod_settings["heat_loss_factor"]
+        self.transferHeatLossFactor = mod_settings["transfer_heat_loss_factor"]
 
         # Computed values
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass
@@ -262,8 +264,8 @@ class SimGrid:
 
             dist = ops_vector_lenght*self.cellSize
             distQTransfer = qTransfer/dist
-            
-            newTE += distQTransfer * dT
+
+            newTE = np.where(distQTransfer > 0, newTE + distQTransfer * self.transferHeatLossFactor * dT, newTE + distQTransfer * dT)
         
         # update real values with temporary computation variables
         self.cellThermalE = np.copy(newTE)
