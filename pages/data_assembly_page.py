@@ -375,6 +375,7 @@ def download_file(n_clicks, fileName, setupName):
             "fuel_burn_rate": 0.001,
             "heat_loss_factor": 0.999,
             "transfer_heat_loss_factor": 0.7,
+            "burn_heat_loss_factor": 0.7,
             
         },
 

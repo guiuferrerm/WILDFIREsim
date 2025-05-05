@@ -64,6 +64,7 @@ class SimGrid:
         self.windAffectCt = 0
         self.heatLossFactor = 0
         self.transferHeatLossFactor = 0
+        self.burnHeatLossFactor = 0
 
         # Radiation
         self.stefanBoltzmannCt = 0
@@ -127,6 +128,7 @@ class SimGrid:
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
         self.heatLossFactor = mod_settings["heat_loss_factor"]
         self.transferHeatLossFactor = mod_settings["transfer_heat_loss_factor"]
+        self.burnHeatLossFactor = mod_settings["burn_heat_loss_factor"]
 
         # Computed values
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass
@@ -260,9 +262,9 @@ class SimGrid:
             dotProduct = normalized_ops_vector[0]*normalized_shifted_wind[:,:,0] + normalized_ops_vector[1]*normalized_shifted_wind[:,:,1]
             windEffectCoef = np.exp(self.windAffectCt * (shifted_wind_lenght / (self.cellSize*ops_vector_lenght)) * dotProduct)
             
-            qTransfer = idealQTransfers * windEffectCoef + idealQTransfers * windEffectCoef * (deltaHeight/(np.sqrt(deltaHeight**2 + ops_vector_lenght**2))) * self.slopeEffectFactor
+            qTransfer = idealQTransfers * windEffectCoef * np.exp(self.slopeEffectFactor * (deltaHeight/(np.sqrt(deltaHeight**2 + (ops_vector_lenght*self.cellSize)**2))) )
 
-            dist = ops_vector_lenght*self.cellSize
+            dist = np.sqrt(deltaHeight**2 + (ops_vector_lenght*self.cellSize)**2)
             distQTransfer = qTransfer/dist
 
             newTE = np.where(distQTransfer > 0, newTE + distQTransfer * self.transferHeatLossFactor * dT, newTE + distQTransfer * dT)
@@ -308,12 +310,12 @@ class SimGrid:
         self.fireIntensity = burning * self.fuelBurnRate * self.fuelMass * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
     
         # burn also based on neighbors
-        neighborBurnFactor = 0.1
+        neighborBurnFactor = 0.05
         neighbors_kernel = np.array([[0,neighborBurnFactor,0],[neighborBurnFactor,1,neighborBurnFactor],[0,neighborBurnFactor,0]])
         self.fireIntensity = convolve2d(self.fireIntensity, neighbors_kernel, mode='same', fillvalue=0)
     
         # calculate released energy accounting for neighbors
-        releasedEnergy = self.fireIntensity * dT
+        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dT
     
     
         self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)
