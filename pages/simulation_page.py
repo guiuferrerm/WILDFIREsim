@@ -3,9 +3,10 @@ import dash
 from dash import dcc, html, Input, Output, State, ctx, MATCH, ALL
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import threading
 
 from app import app
+from utils.cache_config import background_callback_manager, cache
+from utils import cache_config
 from utils.height_data_array_prep import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.npz_file_management import read_and_store_npz_contents
 from utils.dcc_upload_management import read_and_store_dcc_file_at
@@ -121,7 +122,6 @@ layout = html.Div([
     ], className='simulation-wrap'),
 ])
 
-simulation_thread = None  # Global thread object
 simulation_grid = fire_simulation.SimGrid()
 frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
 
@@ -231,11 +231,14 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
     fig_updated = False
 
     if simulation_status['state'] == 'running' or simulation_status['state'] == 'finished':
-        
-        if 0 <= selected_frame < len(sim_frames[data_shown]["data"]):
-            frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
+        if sim_frames:
+            if 0 <= selected_frame < len(sim_frames[data_shown]["data"]):
+                frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
+            else:
+                print(f"selected_frame {selected_frame} is out of range!")
+                raise dash.exceptions.PreventUpdate
         else:
-            print(f"selected_frame {selected_frame} is out of range!")
+            print("No data!!!")
             raise dash.exceptions.PreventUpdate
         
         if sim_frames and data_shown in sim_frames:
@@ -262,21 +265,6 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             f'progress: {round(simulation_status["progress"])} %, {simulation_status["state"]}',
             is_first_plot,
             fig if fig_updated else dash.no_update,
-        )
-    
-    elif simulation_status['state'] == 'finished':
-        fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
-        fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
-        fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
-        fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
-        
-        return (
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            f'Progress: 100%, Simulation Finished',
-            is_first_plot,
-            dash.no_update,
         )
 
     elif simulation_status['state'] == 'preparing':
@@ -315,11 +303,12 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                 fig_updated = True
         
         else:
-            fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
-            fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
-            fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
-            fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
-            fig.data[2].z = igniting_cells
+            if fig.data and uploaded_data and igniting_cells:
+                fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+                fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+                fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+                fig.data[2].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
+                fig.data[2].z = igniting_cells
 
             fig_updated = True
 
@@ -388,58 +377,48 @@ def handle_simulation_buttons(sim_clicks, reset_clicks, n_intervals):
      State('settings-store-simulation', 'data'),
      State('simulation-setup-settings-store', 'data'),
      State('simulation-status-store', 'data'),],
-    prevent_initial_call=True
+    prevent_initial_call=True,
+    background=True,
+    manager=background_callback_manager,
 )
 def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation_dt_t_data, simulation_status):
-    global simulation_thread, simulation_grid, frames_recorder
+    global simulation_grid, frames_recorder
     if not sim_data or not igniting_cells:
         raise dash.exceptions.PreventUpdate
     
-    simulation_grid = fire_simulation.SimGrid()
-    frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
+    if cache_config.acquire_lock("SIMULATION_ONLY_KEY"):
+
+        simulation_grid.reset()
+        frames_recorder.reset()
+            
+        simulation_grid.setup(
+            np.array(sim_data['height'], dtype=float),
+            np.array(sim_data['x_deg_mesh'], dtype=float),
+            np.array(sim_data['y_deg_mesh'], dtype=float),
+            np.array(sim_data['temperature'], dtype=float),
+            np.array(sim_data['fuel_moisture_content'], dtype=float),
+            np.array(sim_data['fuel_mass'], dtype=float),
+            np.array(sim_data['unburnable_mass'], dtype=float),
+            np.array(sim_data['wind_x'], dtype=float),
+            np.array(sim_data['wind_y'], dtype=float),
+            dict(sim_data['unmod_settings']),
+            dict(settings_data),
+            dict(sim_data['metadata']),
+            np.array(igniting_cells, dtype=float)
+        )
         
-    simulation_grid.setup(
-        np.array(sim_data['height'], dtype=float),
-        np.array(sim_data['x_deg_mesh'], dtype=float),
-        np.array(sim_data['y_deg_mesh'], dtype=float),
-        np.array(sim_data['temperature'], dtype=float),
-        np.array(sim_data['fuel_moisture_content'], dtype=float),
-        np.array(sim_data['fuel_mass'], dtype=float),
-        np.array(sim_data['unburnable_mass'], dtype=float),
-        np.array(sim_data['wind_x'], dtype=float),
-        np.array(sim_data['wind_y'], dtype=float),
-        dict(sim_data['unmod_settings']),
-        dict(settings_data),
-        dict(sim_data['metadata']),
-        np.array(igniting_cells, dtype=float)
-    )
+        totalTime = simulation_dt_t_data["total_time"]
+        deltaTime = simulation_dt_t_data['time_step']
+        recordInterval = simulation_dt_t_data['record_interval']
+
+        fire_simulation.simulate(simulation_grid, frames_recorder, deltaTime, totalTime, recordInterval)
+        
+        cache_config.release_lock("SIMULATION_ONLY_KEY")
     
-    totalTime = simulation_dt_t_data["total_time"]
-    deltaTime = simulation_dt_t_data['time_step']
-    recordInterval = simulation_dt_t_data['record_interval']
-
-    if simulation_status['state'] != 'running':
-        if simulation_thread is None or not simulation_thread.is_alive():
-            simulation_thread = threading.Thread(
-                target=thread_simulation,
-                args=(simulation_grid, frames_recorder, deltaTime, totalTime, recordInterval, simulation_status)
-            )
-            simulation_thread.start()
-
-# Lock to ensure only one thread can run the simulation at a time
-simulation_lock = threading.Lock()
-
-def thread_simulation(sim_grid, recorder, delta, total, interval, simulation_status):
-    # Attempt to acquire the lock before starting the simulation
-    with simulation_lock:
-        # Only one thread can enter this block at a time
-        if simulation_status['state'] == 'running':
-            print("Thread blocked: caution")
-            return  # Exit if another simulation is already running
-
-        # Run the simulation
-        fire_simulation.simulate(sim_grid, recorder, delta, total, interval)
-
+    else:
+        print("Simulation already running!!!")
+    
+        
 @app.callback(
     Output('settings-store-simulation', 'data'),
     Input('uploaded-file-store-simulation', 'data'),
@@ -475,7 +454,8 @@ def set_simulation_its(time_step, total_time, record_interval):
     prevent_initial_call=True
 )
 def update_plot_for_simulation(n_intervals):
-    frames = frames_recorder.data
+    global frames_recorder
+    frames = cache.get("all_frames")
     return frames
 
 @app.callback(
@@ -484,26 +464,30 @@ def update_plot_for_simulation(n_intervals):
     Input('simulate-btn', 'n_clicks'),
     Input('upload-wfss-for-simulation', 'contents'),
     State('simulation-status-store', 'data'),
+    State('sim-frame-store', 'data'),
     prevent_initial_call=True
 )
 
-def manage_simulation_status(n_intervals, n_clicks, upload, simulation_status):
+def manage_simulation_status(n_intervals, n_clicks, upload, simulation_status, latestFrameStore):
+    global frames_recorder
     trigger = ctx.triggered_id
 
     if trigger == 'frame-interval':
-        simulation_status['progress'] = frames_recorder.simulationProgress
+        simulation_status['progress'] = float(cache.get("progress"))
 
         # If the simulation reaches 100%, set the state to 'finished'
         if simulation_status['progress'] >= 100 and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
+            print("SIMPAGE: simulation_status --> finished")
     
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
-            if simulation_thread is None or not simulation_thread.is_alive():
-                simulation_status['state'] = 'running'
+            simulation_status['state'] = 'running'
+            print("SIMPAGE: simulation_status --> running")
     
     elif trigger == 'upload-wfss-for-simulation':
         simulation_status['state'] = 'preparing'
+        print("SIMPAGE: simulation_status --> preparing")
 
     return simulation_status
 
@@ -512,7 +496,8 @@ def manage_simulation_status(n_intervals, n_clicks, upload, simulation_status):
     Output('frame-interval', 'disabled'),
     Input('frame-interval', 'n_intervals'),
     Input('simulate-btn', 'n_clicks'),
-    State('simulation-status-store', 'data')
+    State('simulation-status-store', 'data'),
+    prevent_initial_call=True
 )
 def control_frame_interval(n_clicks, n_intervals, simulation_status):
     trigger = ctx.triggered_id
@@ -523,5 +508,5 @@ def control_frame_interval(n_clicks, n_intervals, simulation_status):
     elif trigger == 'frame-interval':
         if simulation_status['state'] != 'running':
             return True
-        
+
     return False

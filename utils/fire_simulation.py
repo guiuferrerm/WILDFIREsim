@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from scipy.signal import convolve2d
+from utils.cache_config import cache
 
 class SimGrid:
     # GRID SETUP, CREATION AND RESET
@@ -381,6 +382,7 @@ class FramesRecorder():
         self.simulationProgress = (second * 100) / totalTime
     
 def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
+    print('started simulation')
     elapsedTime = 0  # initialize a variable to keep track of time
     elapsedTimeForPlotRecord = 0
 
@@ -397,6 +399,8 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
         if elapsedTimeForPlotRecord >= (frameRecordInterval):  # Check if 30 minutes (1800 seconds) have passed
             recorderHolder.record(elapsedTime, totalTime)
             elapsedTimeForPlotRecord = 0  # reset the counter after recording
+            cache.set("all_frames", recorderHolder.data)
+            cache.set("progress", recorderHolder.simulationProgress)
     
     print("finished simulation")
         
