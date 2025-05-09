@@ -260,14 +260,14 @@ class SimGrid:
             ), axis=-1)
             
             dotProduct = normalized_ops_vector[0]*normalized_shifted_wind[:,:,0] + normalized_ops_vector[1]*normalized_shifted_wind[:,:,1]
-            windEffectCoef = np.exp(self.windAffectCt * (shifted_wind_lenght / (self.cellSize*ops_vector_lenght)) * dotProduct)
             
-            qTransfer = idealQTransfers * windEffectCoef * np.exp(self.slopeEffectFactor * (deltaHeight/(np.sqrt(deltaHeight**2 + (ops_vector_lenght*self.cellSize)**2))) )
-
             dist = np.sqrt(deltaHeight**2 + (ops_vector_lenght*self.cellSize)**2)
-            distQTransfer = qTransfer/dist
+            windEffectCoef = np.exp(self.windAffectCt * shifted_wind_lenght * dotProduct)
+            dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/dist))
+            
+            qTransfer = (idealQTransfers/dist) * windEffectCoef * dHeightEffectCoef
 
-            newTE = np.where(distQTransfer > 0, newTE + distQTransfer * self.transferHeatLossFactor * dT, newTE + distQTransfer * dT)
+            newTE = np.where(qTransfer > 0, newTE + qTransfer * self.transferHeatLossFactor * dT, newTE + qTransfer * dT)
         
         # update real values with temporary computation variables
         self.cellThermalE = np.copy(newTE)
