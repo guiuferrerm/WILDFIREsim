@@ -1,2 +1,3 @@
 from dash import Dash
-app = Dash(__name__, suppress_callback_exceptions=True)
+from utils.cache_config import background_callback_manager
+app = Dash(__name__, suppress_callback_exceptions=True, background_callback_manager=background_callback_manager)

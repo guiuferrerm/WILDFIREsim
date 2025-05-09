@@ -1,5 +1,6 @@
 import numpy as np
 import dash
+import multiprocessing
 from dash import dcc, html, Input, Output, State, ctx, MATCH, ALL
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -331,10 +332,11 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
         Output('frame-slider', 'value'),
     ],
     inputs=[Input('sim-frame-store', 'data'),
-            Input('simulation-status-store', 'data')],
+            Input('simulation-status-store', 'data'),
+            Input('frame-interval', 'n_intervals')],
     prevent_initial_call=True
 )
-def update_slider_range_and_value(sim_frames, simulation_status):
+def update_slider_range_and_value(sim_frames, simulation_status, n_intervals):
     if not sim_frames or "timestamps" not in sim_frames:
         raise dash.exceptions.PreventUpdate
 
@@ -462,13 +464,14 @@ def update_plot_for_simulation(n_intervals):
     Output('simulation-status-store', 'data'),
     Input('frame-interval', 'n_intervals'),
     Input('simulate-btn', 'n_clicks'),
+    Input('reset-btn', 'n_clicks'),
     Input('upload-wfss-for-simulation', 'contents'),
     State('simulation-status-store', 'data'),
     State('sim-frame-store', 'data'),
     prevent_initial_call=True
 )
 
-def manage_simulation_status(n_intervals, n_clicks, upload, simulation_status, latestFrameStore):
+def manage_simulation_status(n_intervals, n_clicks, reset_n_clicks, upload, simulation_status, latestFrameStore):
     global frames_recorder
     trigger = ctx.triggered_id
 
@@ -479,6 +482,10 @@ def manage_simulation_status(n_intervals, n_clicks, upload, simulation_status, l
         if simulation_status['progress'] >= 100 and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
             print("SIMPAGE: simulation_status --> finished")
+    
+    elif trigger == 'reset-btn':
+        simulation_status['state'] = 'finished'
+        print("SIMPAGE: simulation_status --> finished")
     
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
