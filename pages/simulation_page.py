@@ -35,7 +35,13 @@ layout = html.Div([
             dcc.Store(id='simulation-setup-settings-store', data={'time_step': 3, 'total_time': 3600}), # must be equal to initial input value
             dcc.Store(id='store-igniting-cells'),
             dcc.Store(id='simulation-status-store', data={'state': 'preparing', 'progress': 0}),
-            dcc.Store(id='sim-frame-store'),  # Holds the simulation frames
+            dcc.Store(id='sim-frame-store', data={
+                "timestamps": [],
+                "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
+                "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
+                "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
+                "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
+            }),  # Holds the simulation frames
             dcc.Store(id='is-first-plot-store', data=True),
             dcc.Interval(
                 id='frame-interval',
@@ -372,13 +378,18 @@ def handle_simulation_buttons(sim_clicks, reset_clicks, n_intervals):
 
     raise dash.exceptions.PreventUpdate
 
+# --- Refactored and merged callbacks for simulation control ---
+
+# Run simulation in background (diskcache)
 @app.callback(
     Input('simulate-btn', 'n_clicks'),
-    [State('uploaded-file-store-simulation', 'data'),
-     State('store-igniting-cells', 'data'),
-     State('settings-store-simulation', 'data'),
-     State('simulation-setup-settings-store', 'data'),
-     State('simulation-status-store', 'data'),],
+    [
+        State('uploaded-file-store-simulation', 'data'),
+        State('store-igniting-cells', 'data'),
+        State('settings-store-simulation', 'data'),
+        State('simulation-setup-settings-store', 'data'),
+        State('simulation-status-store', 'data'),
+    ],
     prevent_initial_call=True,
     background=True,
     manager=background_callback_manager,
@@ -387,133 +398,159 @@ def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation
     global simulation_grid, frames_recorder
     if not sim_data or not igniting_cells:
         raise dash.exceptions.PreventUpdate
-    
+
     if cache_config.acquire_lock("SIMULATION_ONLY_KEY"):
+        try:
+            simulation_grid.reset()
+            frames_recorder.reset()
+            simulation_grid.setup(
+                np.array(sim_data['height'], dtype=float),
+                np.array(sim_data['x_deg_mesh'], dtype=float),
+                np.array(sim_data['y_deg_mesh'], dtype=float),
+                np.array(sim_data['temperature'], dtype=float),
+                np.array(sim_data['fuel_moisture_content'], dtype=float),
+                np.array(sim_data['fuel_mass'], dtype=float),
+                np.array(sim_data['unburnable_mass'], dtype=float),
+                np.array(sim_data['wind_x'], dtype=float),
+                np.array(sim_data['wind_y'], dtype=float),
+                dict(sim_data['unmod_settings']),
+                dict(settings_data),
+                dict(sim_data['metadata']),
+                np.array(igniting_cells, dtype=float)
+            )
 
-        simulation_grid.reset()
-        frames_recorder.reset()
-            
-        simulation_grid.setup(
-            np.array(sim_data['height'], dtype=float),
-            np.array(sim_data['x_deg_mesh'], dtype=float),
-            np.array(sim_data['y_deg_mesh'], dtype=float),
-            np.array(sim_data['temperature'], dtype=float),
-            np.array(sim_data['fuel_moisture_content'], dtype=float),
-            np.array(sim_data['fuel_mass'], dtype=float),
-            np.array(sim_data['unburnable_mass'], dtype=float),
-            np.array(sim_data['wind_x'], dtype=float),
-            np.array(sim_data['wind_y'], dtype=float),
-            dict(sim_data['unmod_settings']),
-            dict(settings_data),
-            dict(sim_data['metadata']),
-            np.array(igniting_cells, dtype=float)
-        )
-        
-        totalTime = simulation_dt_t_data["total_time"]
-        deltaTime = simulation_dt_t_data['time_step']
-        recordInterval = simulation_dt_t_data['record_interval']
+            cache.set("last_frame_sent", 0)
+            cache.set("new_frames", 
+            {   "timestamps": [],
+                "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+            })
 
-        fire_simulation.simulate(simulation_grid, frames_recorder, deltaTime, totalTime, recordInterval)
-        
-        cache_config.release_lock("SIMULATION_ONLY_KEY")
-    
+            fire_simulation.simulate(
+                simulation_grid,
+                frames_recorder,
+                simulation_dt_t_data['time_step'],
+                simulation_dt_t_data['total_time'],
+                simulation_dt_t_data['record_interval']
+            )
+        finally:
+            cache_config.release_lock("SIMULATION_ONLY_KEY")
     else:
         print("Simulation already running!!!")
-    
-        
+
+# Collect settings from dynamic inputs or file
 @app.callback(
     Output('settings-store-simulation', 'data'),
-    Input('uploaded-file-store-simulation', 'data'),
-    Input({'type': 'setting-input', 'key': ALL}, 'value'),
-    State({'type': 'setting-input', 'key': ALL}, 'id'),  # <--- get the full ID
+    [
+        Input('uploaded-file-store-simulation', 'data'),
+        Input({'type': 'setting-input', 'key': ALL}, 'value')
+    ],
+    State({'type': 'setting-input', 'key': ALL}, 'id'),
 )
 def collect_settings(data, values, ids):
-    trigger = ctx.triggered_id
-    if trigger == 'uploaded-file-store-simulation':
+    # If file upload triggered, use its mod_settings
+    if ctx.triggered_id == 'uploaded-file-store-simulation':
         return data['mod_settings']
+    # Otherwise, collect from dynamic inputs
+    if not values or not ids:
+        raise dash.exceptions.PreventUpdate
+    keys = [id_obj['key'] for id_obj in ids]
+    return {k: v for k, v in zip(keys, values)}
 
-    else:
-        if not values or not ids:
-            raise dash.exceptions.PreventUpdate
-
-        # Extract keys from the 'id' dictionaries
-        keys = [id_obj['key'] for id_obj in ids]
-        return {k: v for k, v in zip(keys, values)}
-
+# Store time/interval settings
 @app.callback(
     Output('simulation-setup-settings-store', 'data'),
-    Input('simulation-time-step-input', 'value'),
-    Input('simulation-total-time-input', 'value'),
-    Input('simulation-record-interval-input', 'value')
+    [
+        Input('simulation-time-step-input', 'value'),
+        Input('simulation-total-time-input', 'value'),
+        Input('simulation-record-interval-input', 'value')
+    ]
 )
-
 def set_simulation_its(time_step, total_time, record_interval):
     return {'time_step': time_step, 'total_time': total_time, "record_interval": record_interval}
 
+# Update sim-frame-store with latest frames from cache
 @app.callback(
     Output('sim-frame-store', 'data'),
     Input('frame-interval', 'n_intervals'),
-    prevent_initial_call=True
-)
-def update_plot_for_simulation(n_intervals):
-    global frames_recorder
-    frames = cache.get("all_frames")
-    return frames
-
-@app.callback(
-    Output('simulation-status-store', 'data'),
-    Input('frame-interval', 'n_intervals'),
     Input('simulate-btn', 'n_clicks'),
-    Input('reset-btn', 'n_clicks'),
-    Input('upload-wfss-for-simulation', 'contents'),
-    State('simulation-status-store', 'data'),
     State('sim-frame-store', 'data'),
     prevent_initial_call=True
 )
-
-def manage_simulation_status(n_intervals, n_clicks, reset_n_clicks, upload, simulation_status, latestFrameStore):
-    global frames_recorder
+def update_plot_for_simulation(n_intervals, n_clicks, all_data):
     trigger = ctx.triggered_id
+    if trigger == 'simulate-btn':
+        all_data={
+                    "timestamps": [],
+                    "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
+                    "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
+                    "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
+                    "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
+                }  # Holds the simulation frames
+        
+        return all_data
+    else:
+        if cache.get("progress") <= 99:
+            newData = cache.get("new_frames")
+            cache.set("new_frames", 
+                    {   "timestamps": [],
+                        "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                    })
+
+            all_data["timestamps"].extend(newData["timestamps"])
+
+            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+                all_data[key]["data"].extend(newData[key]["data"])
+                all_data[key]["min"] = newData[key]["min"]
+                all_data[key]["max"] = newData[key]["max"]
+                all_data[key]["colormap"] = newData[key]["colormap"]
+    
+            return newData
+
+        else:
+            return cache.get("all_frames")
+
+# Manage simulation status and frame-interval in one callback
+@app.callback(
+    [
+        Output('simulation-status-store', 'data'),
+        Output('frame-interval', 'disabled')
+    ],
+    [
+        Input('frame-interval', 'n_intervals'),
+        Input('simulate-btn', 'n_clicks'),
+        Input('reset-btn', 'n_clicks'),
+        Input('upload-wfss-for-simulation', 'contents'),
+    ],
+    [
+        State('simulation-status-store', 'data'),
+        State('sim-frame-store', 'data'),
+    ],
+    prevent_initial_call=True
+)
+def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, simulation_status, latestFrameStore):
+    trigger = ctx.triggered_id
+    interval_disabled = dash.no_update
 
     if trigger == 'frame-interval':
-        simulation_status['progress'] = float(cache.get("progress"))
-
-        # If the simulation reaches 100%, set the state to 'finished'
+        simulation_status['progress'] = float(cache.get("progress") or 0)
         if simulation_status['progress'] >= 100 and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
-            print("SIMPAGE: simulation_status --> finished")
-    
+            interval_disabled = True
     elif trigger == 'reset-btn':
         simulation_status['state'] = 'finished'
-        print("SIMPAGE: simulation_status --> finished")
-    
+        interval_disabled = True
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'
-            print("SIMPAGE: simulation_status --> running")
-    
+            interval_disabled = False
     elif trigger == 'upload-wfss-for-simulation':
         simulation_status['state'] = 'preparing'
-        print("SIMPAGE: simulation_status --> preparing")
+        interval_disabled = True
 
-    return simulation_status
-
-
-@app.callback(
-    Output('frame-interval', 'disabled'),
-    Input('frame-interval', 'n_intervals'),
-    Input('simulate-btn', 'n_clicks'),
-    State('simulation-status-store', 'data'),
-    prevent_initial_call=True
-)
-def control_frame_interval(n_clicks, n_intervals, simulation_status):
-    trigger = ctx.triggered_id
-
-    if trigger == 'simulate-btn':
-        return False
-    
-    elif trigger == 'frame-interval':
-        if simulation_status['state'] != 'running':
-            return True
-
-    return False
+    return simulation_status, interval_disabled

@@ -399,6 +399,23 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
         if elapsedTimeForPlotRecord >= (frameRecordInterval):  # Check if 30 minutes (1800 seconds) have passed
             recorderHolder.record(elapsedTime, totalTime)
             elapsedTimeForPlotRecord = 0  # reset the counter after recording
+            
+            dataToSend = cache.get("new_frames")
+
+            for frame in range(int(cache.get("last_frame_sent")), len(recorderHolder.data["timestamps"])):
+                dataToSend["timestamps"].append(recorderHolder.data["timestamps"][frame])
+                for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+                    dataToSend[key]["data"].append(recorderHolder.data[key]["data"][frame])
+
+            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+                dataToSend[key]["min"] = recorderHolder.data[key]["min"]
+                dataToSend[key]["max"] = recorderHolder.data[key]["max"]
+                dataToSend[key]["colormap"] = recorderHolder.data[key]["colormap"]
+
+            print(dataToSend["timestamps"])
+
+            cache.set("last_frame_sent", len(recorderHolder.data["timestamps"]))
+            cache.set("new_frames", dataToSend)
             cache.set("all_frames", recorderHolder.data)
             cache.set("progress", recorderHolder.simulationProgress)
     
