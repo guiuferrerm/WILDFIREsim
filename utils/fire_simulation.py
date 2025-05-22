@@ -382,7 +382,40 @@ class FramesRecorder():
         self.simulationProgress = (second * 100) / totalTime
     
 def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
-    print('started simulation')
+    print('UTS-- PREPARING SIMULATION')
+    cache.set("progress", recorderHolder.simulationProgress)
+    cache.set("last_frame_sent", 0)
+    cache.set("new_frames", 
+            {   "timestamps": [],
+                "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+            })
+    cache.set("all_frames", 
+            {   "timestamps": [],
+                "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+            })
+    test_frames = {"timestamps": [],
+                        "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                        }
+    
+    print("    |- Setting cache initial state")
+    print(f"      |- Cache progress: \033[92m OK \033[0m") if cache.get("progress") == 0 else print(f" |- Cache progress: \033[93m ERROR \033[0m")
+    print(f"      |- Cache last frame sent: \033[92m OK \033[0m") if cache.get('last_frame_sent') == 0 else print(f" |- Cache last frame sent: \033[93m ERROR \033[0m")
+    print(f"      |- Frames cache:")
+    print(f"         |- Cache new frames: \033[92m OK \033[0m") if cache.get('new_frames') == test_frames else print(f"    |- Cache new frames: \033[93m ERROR \033[0m")
+    print(f"         |- Cache all frames: \033[92m OK \033[0m") if cache.get('all_frames') == test_frames else print(f"    |- Cache all frames: \033[93m ERROR \033[0m")
+    print("")
+    print("UTS-- SIMULATION STARTED")
+    print("")
+
     elapsedTime = 0  # initialize a variable to keep track of time
     elapsedTimeForPlotRecord = 0
 
@@ -412,12 +445,12 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
                 dataToSend[key]["max"] = recorderHolder.data[key]["max"]
                 dataToSend[key]["colormap"] = recorderHolder.data[key]["colormap"]
 
-            print(dataToSend["timestamps"])
+            print(f"Sim timestamps to send: {dataToSend['timestamps']}")
 
             cache.set("last_frame_sent", len(recorderHolder.data["timestamps"]))
             cache.set("new_frames", dataToSend)
             cache.set("all_frames", recorderHolder.data)
             cache.set("progress", recorderHolder.simulationProgress)
     
-    print("finished simulation")
+    print("UTS-- SIMULATION FINISHED")
         
