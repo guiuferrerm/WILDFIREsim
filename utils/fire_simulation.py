@@ -382,6 +382,7 @@ class FramesRecorder():
         self.simulationProgress = (second * 100) / totalTime
     
 def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
+    print("")
     print('UTS-- PREPARING SIMULATION')
     cache.set("progress", recorderHolder.simulationProgress)
     cache.set("last_frame_sent", 0)
@@ -445,12 +446,14 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
                 dataToSend[key]["max"] = recorderHolder.data[key]["max"]
                 dataToSend[key]["colormap"] = recorderHolder.data[key]["colormap"]
 
-            print(f"Sim timestamps to send: {dataToSend['timestamps']}")
+            print(f"UTS-- PLOT UPDATE --> timestamps to send: {dataToSend['timestamps']}")
 
             cache.set("last_frame_sent", len(recorderHolder.data["timestamps"]))
             cache.set("new_frames", dataToSend)
             cache.set("all_frames", recorderHolder.data)
             cache.set("progress", recorderHolder.simulationProgress)
     
+    print("")
+    print(f"UTS-- PLOT UPDATE --> last update with all timestamps: {cache.get('all_frames')['timestamps']}")
     print("UTS-- SIMULATION FINISHED")
         

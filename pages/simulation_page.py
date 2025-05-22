@@ -242,10 +242,10 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             if 0 <= selected_frame < len(sim_frames[data_shown]["data"]):
                 frame_data = np.array(sim_frames[data_shown]["data"][-1])
             else:
-                print(f"selected_frame {selected_frame} is out of range!")
+                #print(f"selected_frame {selected_frame} is out of range!")
                 raise dash.exceptions.PreventUpdate
         else:
-            print("No data!!!")
+            #print("No data!!!")
             raise dash.exceptions.PreventUpdate
         
         if sim_frames and data_shown in sim_frames:
@@ -279,10 +279,10 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             if 0 <= selected_frame < len(sim_frames[data_shown]["data"]):
                 frame_data = np.array(sim_frames[data_shown]["data"][selected_frame])
             else:
-                print(f"selected_frame {selected_frame} is out of range!")
+                #print(f"selected_frame {selected_frame} is out of range!")
                 raise dash.exceptions.PreventUpdate
         else:
-            print("No data!!!")
+            #print("No data!!!")
             raise dash.exceptions.PreventUpdate
         
         if sim_frames and data_shown in sim_frames:
@@ -570,24 +570,19 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
     interval_disabled = dash.no_update
 
     if trigger == 'frame-interval':
-        print("Interval triggered")
         simulation_status['progress'] = float(cache.get("progress") or 0)
         if (simulation_status['progress'] >= 100) and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
-            print("Disabled-finish")
             interval_disabled = True
     elif trigger == 'reset-btn':
         simulation_status['state'] = 'finished'
-        print("Disabled-reset")
         interval_disabled = True
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'
-            print("Enabled-start")
             interval_disabled = False
     elif trigger == 'upload-wfss-for-simulation':
         simulation_status['state'] = 'preparing'
-        print("Diabled-prep")
         interval_disabled = True
 
     return simulation_status, interval_disabled
