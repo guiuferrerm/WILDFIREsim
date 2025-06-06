@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from app import app
-from utils.height_data_array_prep import HGT_to_np_array, prepare_HGT_as_array_data
+from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.npz_file_management import build_npz_file
 from utils.dcc_upload_management import read_and_store_dcc_file_at
 

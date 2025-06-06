@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 from app import app
 from utils.cache_config import background_callback_manager, cache
 from utils import cache_config
-from utils.height_data_array_prep import HGT_to_np_array, prepare_HGT_as_array_data
+from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.npz_file_management import read_and_store_npz_contents
 from utils.dcc_upload_management import read_and_store_dcc_file_at
 from utils import fire_simulation
