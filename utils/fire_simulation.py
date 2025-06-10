@@ -7,7 +7,8 @@ class SimGrid:
     # GRID SETUP, CREATION AND RESET
     def __init__(self):
         # Geometry
-        self.cellSize = 0
+        self.cellSizeX = 0
+        self.cellSizeY = 0
         self.cellArea = 0
         self.gridSizeX = 0
         self.gridSizeY = 0
@@ -79,8 +80,9 @@ class SimGrid:
             initial_igniting_cells):
 
         # Grid structure
-        self.cellSize = float(unmod_settings["cell_size"])
-        self.cellArea = self.cellSize ** 2
+        self.cellSizeX = float(unmod_settings["cell_size_x"])
+        self.cellSizeY = float(unmod_settings["cell_size_y"])
+        self.cellArea = self.cellSizeX * self.cellSizeY
         self.gridSizeX = int(unmod_settings["array_dim_x"])
         self.gridSizeY = int(unmod_settings["array_dim_y"])
 
@@ -262,7 +264,8 @@ class SimGrid:
             
             dotProduct = normalized_ops_vector[0]*normalized_shifted_wind[:,:,0] + normalized_ops_vector[1]*normalized_shifted_wind[:,:,1]
             
-            dist = np.sqrt(deltaHeight**2 + (ops_vector_lenght*self.cellSize)**2)
+            horizontaldist = math.sqrt((ops_vector[0]*self.cellSizeY)**2 + (ops_vector[1]*self.cellSizeX)**2)
+            dist = np.sqrt(deltaHeight**2 + horizontaldist**2)
             windEffectCoef = np.exp(self.windAffectCt * shifted_wind_lenght * dotProduct)
             dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/dist))
             

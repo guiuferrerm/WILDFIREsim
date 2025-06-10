@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 
 from app import app
 from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
-from utils.npz_file_management import build_npz_file
+from utils.wfss_file_management import create_new_wfss_file
 from utils.dcc_upload_management import read_and_store_dcc_file_at
 
 layout = html.Div([
@@ -168,7 +168,7 @@ def update_plot(n_clicks, dataType, relayout_data, mod_n_clicks,
                             originE, minE, maxE, 
                             arcsecInterval):
     
-    global fig, dataArrays, Xmesh, Ymesh, heightData, meterMeshGrid
+    global fig, dataArrays, Xmesh, Ymesh, heightData, meterMeshGrid, arcsecMeshGrid
 
     trigger_id = ctx.triggered_id
 
@@ -327,65 +327,9 @@ def update_units_label(dataType):
 )
 
 def download_file(n_clicks, fileName, setupName):
-    global dataArrays, heightData, Xmesh, Ymesh, meterMeshGrid
+    global dataArrays, heightData, arcsecMeshGrid, meterMeshGrid
 
-    xMeshM, yMeshM = meterMeshGrid
-    
-    arrays = {
-        "height": np.copy(heightData),
-        "x_deg_mesh": np.copy(Xmesh),
-        "y_deg_mesh": np.copy(Ymesh),
-        "x_meter_mesh": np.copy(xMeshM),
-        "y_meter_mesh": np.copy(yMeshM),
-        "temperature": np.copy(dataArrays["temperature"]["array"]),
-        "fuel_moisture_content": np.copy(dataArrays["fuel_moisture_content"]["array"]),
-        "fuel_mass": np.copy(dataArrays["fuel_mass"]["array"]),
-        "unburnable_mass": np.copy(dataArrays["unburnable_mass"]["array"]),
-        "wind_x": np.copy(dataArrays["wind_x"]["array"]),
-        "wind_y": np.copy(dataArrays["wind_y"]["array"]),
-
-        "unmod_settings": {
-            "cell_size": round( ((Xmesh[0][-1]-Xmesh[0][0])/len(Xmesh[0]))*3600*30, 3 ),
-            "array_dim_x": int(heightData.shape[1]),
-            "array_dim_y": int(heightData.shape[0]),
-
-            "water_specific_heat": 4.186,
-            "water_latent_heat": 2260.0,
-            "water_boiling_temp": 373.15,
-
-            "stefan_boltzmann_ct": 5.670e-11,
-        },
-
-        "mod_settings": {
-            "fuel_igniting_temp": 573.15,
-            "fuel_specific_heat": 1.76,
-            "fuel_calorific_value": 20900.0,
-
-            "unburnable_specific_heat": 1.17,
-
-            "ambient_temp": 298.15,
-            "boundary_avg_mass": 30.0,
-            "boundary_avg_specific_heat": 2.0,
-            "boundary_avg_wind_vector_x": 0,
-            "boundary_avg_wind_vector_y": 0,
-
-            "heat_transfer_rate": 0.003,
-            "slope_effect_factor": 0.2,
-            "wind_effect_constant": 1,
-            "fuel_burn_rate": 0.001,
-            "heat_loss_factor": 0.999,
-            "transfer_heat_loss_factor": 0.7,
-            "burn_heat_loss_factor": 0.7,
-            
-        },
-
-        "metadata": {
-            "version": 1.0,
-            "setup_title": setupName,
-        },
-    }
-
-    file = build_npz_file(arrays)
+    file = create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, meterMeshGrid)
 
     return dcc.send_bytes(file, f"{fileName}.wfss")
     

@@ -12,7 +12,7 @@ from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.npz_file_management import read_and_store_npz_contents
 from utils.dcc_upload_management import read_and_store_dcc_file_at
 from utils import fire_simulation
-from utils import time_conversion
+from utils import time_conversion_tools
 
 layout = html.Div([
     html.Div([
@@ -263,7 +263,16 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             raise dash.exceptions.PreventUpdate
 
         time_passed_in_seconds = sim_frames["timestamps"][-1]
-        days_p, hours_p, minutes_p, seconds_p = time_conversion.convert_seconds_to_dhms(time_passed_in_seconds)
+        days_p, hours_p, minutes_p, seconds_p = time_conversion_tools.convert_seconds_to_dhms(time_passed_in_seconds)
+
+        if fig_updated:
+            fig.update_layout(
+                    xaxis=dict(scaleanchor="y"),  # Link the x-axis to the y-axis
+                    yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
+                    xaxis2=dict(matches='x1'),
+                    yaxis2=dict(matches='y1'),
+                    dragmode='select'  # Enable selection on the second plot
+                )
 
         return (
             fig if fig_updated else dash.no_update,
@@ -300,7 +309,16 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             raise dash.exceptions.PreventUpdate
 
         time_passed_in_seconds = sim_frames["timestamps"][selected_frame]
-        days_p, hours_p, minutes_p, seconds_p = time_conversion.convert_seconds_to_dhms(time_passed_in_seconds)
+        days_p, hours_p, minutes_p, seconds_p = time_conversion_tools.convert_seconds_to_dhms(time_passed_in_seconds)
+
+        if fig_updated:
+            fig.update_layout(
+                    xaxis=dict(scaleanchor="y"),  # Link the x-axis to the y-axis
+                    yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
+                    xaxis2=dict(matches='x1'),
+                    yaxis2=dict(matches='y1'),
+                    dragmode='select'  # Enable selection on the second plot
+                )
 
         return (
             fig if fig_updated else dash.no_update,
@@ -324,7 +342,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             fig = make_subplots(rows=1, cols=2, subplot_titles=["Elevation (edit ignition on this one)", "Simulation"])
             fig.add_trace(go.Heatmap(z=height, x=X, y=Y, colorscale="Geyser", showscale=False), row=1, col=1)
             fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(opacity=0)), row=1, col=1)
-            fig.add_trace(go.Heatmap(z=igniting_cells, x=X, y=Y, colorscale="hot"), row=1, col=2)
+            fig.add_trace(go.Heatmap(z=igniting_cells, x=X, y=Y, xaxis='x1', yaxis='y1',colorscale="hot"), row=1, col=2)
             fig.update_layout(dragmode="select", xaxis2=dict(matches='x1'), yaxis2=dict(matches='y1'))
 
             fig_updated = True
@@ -355,6 +373,15 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                 fig.data[2].z = igniting_cells
 
             fig_updated = True
+
+        if fig_updated:
+            fig.update_layout(
+                    xaxis=dict(scaleanchor="y"),  # Link the x-axis to the y-axis
+                    yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
+                    xaxis2=dict(matches='x1'),
+                    yaxis2=dict(matches='y1'),
+                    dragmode='select'  # Enable selection on the second plot
+                )
 
         return (
             fig if fig_updated else dash.no_update,

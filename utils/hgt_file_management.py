@@ -1,3 +1,5 @@
+from utils import geography_tools 
+
 def HGT_to_np_array(filepath):
     import os
     import math
@@ -54,8 +56,15 @@ def prepare_HGT_as_array_data(data, originN, minN, maxN, originE, minE, maxE, ar
     
     data = np.flipud(data) # flip hgt data vertically to fit numpy format (up--> down, left--> right)
     
+    oneArcsecAsDegree = 1/3600
     arcsecsInDegree = 3600
-    meterInterval = arcsecInterval * 30
+    earth_radius = 6371000
+
+    avgLat = (minN+maxN)/2
+    avgLon = (minE+maxE)/2
+
+    meterIntervalX = geography_tools.lon_deg_to_meters(avgLat, oneArcsecAsDegree, earth_radius)*arcsecInterval
+    meterIntervalY = geography_tools.lat_deg_to_meters(oneArcsecAsDegree, earth_radius)*arcsecInterval
     
     # get min and max y cells
     minimumYCell = round((minN - originN)*arcsecsInDegree/arcsecInterval)
@@ -85,9 +94,12 @@ def prepare_HGT_as_array_data(data, originN, minN, maxN, originE, minE, maxE, ar
     selectedData = data[row_slice, col_slice] # Select data wanted (Y/X remember) by cells
     
     # Create meshgrids for data: function returns the data selected + way to interpret the data. Bc numpy y works inverse to cartesian y, the meshgrid returns where should each y value really go (the np array is built to be read in cartesian way).
-    X, Y = np.meshgrid(np.linspace(0, maximumXCell*meterInterval-minimumXCell*meterInterval, maximumXCell-minimumXCell), np.linspace(0, maximumYCell*meterInterval-minimumYCell*meterInterval, maximumYCell-minimumYCell))   # Create meshgrid for X, Y coordinates
+    X, Y = np.meshgrid(np.linspace(0, maximumXCell*meterIntervalX-minimumXCell*meterIntervalX, maximumXCell-minimumXCell), np.linspace(0, maximumYCell*meterIntervalY-minimumYCell*meterIntervalY, maximumYCell-minimumYCell))   # Create meshgrid for X, Y coordinates
     meterMeshGrid = X, Y
     X, Y = np.meshgrid(np.linspace((minimumXCell*arcsecInterval/arcsecsInDegree)+originE, (maximumXCell*arcsecInterval/arcsecsInDegree)+originE, maximumXCell-minimumXCell), np.linspace((minimumYCell*arcsecInterval/arcsecsInDegree)+originN, (maximumYCell*arcsecInterval/arcsecsInDegree)+originN, maximumYCell-minimumYCell))
     arcsecMeshGrid = X, Y
+
+    print(meterMeshGrid)
+    print(arcsecMeshGrid)
     
     return selectedData, meterMeshGrid, arcsecMeshGrid
