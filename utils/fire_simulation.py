@@ -61,7 +61,7 @@ class SimGrid:
         self.windField = None  # 3D array (Y, X, 2)
 
         # Fire Spread Constants
-        self.heatTransferRate = 0
+        self.heatTransferFractionPerStep = 0
         self.slopeEffectFactor = 0
         self.windAffectCt = 0
         self.heatLossFactor = 0
@@ -119,7 +119,7 @@ class SimGrid:
             mod_settings["boundary_avg_wind_vector_y"]
         ])
 
-        self.heatTransferRate = mod_settings["heat_transfer_rate"]
+        self.heatTransferFractionPerStep = mod_settings["heat_transfer_fraction_per_step"]
         self.slopeEffectFactor = mod_settings["slope_effect_factor"]
         self.windAffectCt = mod_settings["wind_effect_constant"]
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
@@ -215,7 +215,7 @@ class SimGrid:
             deltaTemps = shifted_stable_temp - self.cellTemperature
             
             # Q transfers
-            idealQTransfers = self.heatTransferRate*self.cellTotalMass*self.cellSpecificHeat*deltaTemps
+            idealQTransfers = self.heatTransferFractionPerStep*self.cellTotalMass*self.cellSpecificHeat*deltaTemps
             
             # shift wind
             wind = np.copy(self.windField)
@@ -305,7 +305,7 @@ class SimGrid:
 
     def burn(self, dT):
         burning = np.where(self.fuelTemperature > self.fuelIgnitingTemp, 1, 0) # 1 where temp allows burning
-        self.fireIntensity = burning * self.fuelBurnRate * self.fuelMass * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
+        self.fireIntensity = burning * self.fuelBurnRate * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
     
         # burn also based on neighbors
         neighborBurnFactor = 0.05
