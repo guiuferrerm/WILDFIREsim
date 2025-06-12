@@ -28,8 +28,6 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
             "water_specific_heat": 4.186,
             "water_latent_heat": 2260.0,
             "water_boiling_temp": 373.15,
-
-            "stefan_boltzmann_ct": 5.670e-11,
         },
 
         "mod_settings": {
@@ -56,7 +54,7 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
         },
 
         "metadata": {
-            "version": 1.1,
+            "version": 1.11,
             "setup_title": setupName,
         },
     }

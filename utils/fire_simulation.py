@@ -12,6 +12,8 @@ class SimGrid:
         self.cellArea = 0
         self.gridSizeX = 0
         self.gridSizeY = 0
+
+        # Geography
         self.cellHeight = None
 
         # initial conditions
@@ -66,9 +68,6 @@ class SimGrid:
         self.transferHeatLossFactor = 0
         self.burnHeatLossFactor = 0
 
-        # Radiation
-        self.stefanBoltzmannCt = 0
-
     def reset(self):
         self.__init__()
 
@@ -105,7 +104,6 @@ class SimGrid:
         self.waterSpecificHeat = unmod_settings["water_specific_heat"]
         self.waterLatentHeat = unmod_settings["water_latent_heat"]
         self.waterBoilingTemp = unmod_settings["water_boiling_temp"]
-        self.stefanBoltzmannCt = unmod_settings["stefan_boltzmann_ct"]
 
         # Constants: modified
         self.fuelIgnitingTemp = mod_settings["fuel_igniting_temp"]
