@@ -6,14 +6,12 @@ from utils.cache_config import cache
 class SimGrid:
     # GRID SETUP, CREATION AND RESET
     def __init__(self):
-        # Geometry
+        # Arrays
         self.cellSizeX = 0
         self.cellSizeY = 0
         self.cellArea = 0
         self.gridSizeX = 0
         self.gridSizeY = 0
-        self.Xmesh = None
-        self.Ymesh = None
         self.cellHeight = None
 
         # initial conditions
@@ -75,7 +73,7 @@ class SimGrid:
         self.__init__()
 
     def setup(self,
-            heightArray, XmeshArray, YmeshArray, temperatureArray, fuelMoistureArray, fuelMassArray, unburnableMassArray, windXArray, windYArray,
+            heightArray, temperatureArray, fuelMoistureArray, fuelMassArray, unburnableMassArray, windXArray, windYArray,
             unmod_settings, mod_settings, metadata,
             initial_igniting_cells):
 
@@ -86,8 +84,6 @@ class SimGrid:
         self.gridSizeX = int(unmod_settings["array_dim_x"])
         self.gridSizeY = int(unmod_settings["array_dim_y"])
 
-        self.Xmesh = np.copy(XmeshArray)
-        self.Ymesh = np.copy(YmeshArray)
         self.cellHeight = np.copy(heightArray.astype(np.int32))
 
         # Core arrays

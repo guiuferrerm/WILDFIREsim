@@ -473,8 +473,6 @@ def run_simulation(n_clicks, sim_data, igniting_cells, settings_data, simulation
             frames_recorder.reset()
             simulation_grid.setup(
                 np.array(sim_data['height'], dtype=float),
-                np.array(sim_data['x_deg_mesh'], dtype=float),
-                np.array(sim_data['y_deg_mesh'], dtype=float),
                 np.array(sim_data['temperature'], dtype=float),
                 np.array(sim_data['fuel_moisture_content'], dtype=float),
                 np.array(sim_data['fuel_mass'], dtype=float),
