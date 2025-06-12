@@ -61,9 +61,9 @@ class SimGrid:
         self.windField = None  # 3D array (Y, X, 2)
 
         # Fire Spread Constants
-        self.heatTransferFractionPerStep = 0
+        self.heatTransferFactor = 0
         self.slopeEffectFactor = 0
-        self.windAffectCt = 0
+        self.windEffectFactor = 0
         self.heatLossFactor = 0
         self.transferHeatLossFactor = 0
         self.burnHeatLossFactor = 0
@@ -119,9 +119,9 @@ class SimGrid:
             mod_settings["boundary_avg_wind_vector_y"]
         ])
 
-        self.heatTransferFractionPerStep = mod_settings["heat_transfer_fraction_per_step"]
+        self.heatTransferFactor = mod_settings["heat_transfer_factor"]
         self.slopeEffectFactor = mod_settings["slope_effect_factor"]
-        self.windAffectCt = mod_settings["wind_effect_constant"]
+        self.windEffectFactor = mod_settings["wind_effect_factor"]
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
         self.heatLossFactor = mod_settings["heat_loss_factor"]
         self.transferHeatLossFactor = mod_settings["transfer_heat_loss_factor"]
@@ -215,7 +215,7 @@ class SimGrid:
             deltaTemps = shifted_stable_temp - self.cellTemperature
             
             # Q transfers
-            idealQTransfers = self.heatTransferFractionPerStep*self.cellTotalMass*self.cellSpecificHeat*deltaTemps
+            idealQTransfers = self.heatTransferFactor*self.cellTotalMass*self.cellSpecificHeat*deltaTemps
             
             # shift wind
             wind = np.copy(self.windField)
@@ -260,7 +260,7 @@ class SimGrid:
             
             horizontaldist = math.sqrt((ops_vector[0]*self.cellSizeY)**2 + (ops_vector[1]*self.cellSizeX)**2)
             dist = np.sqrt(deltaHeight**2 + horizontaldist**2)
-            windEffectCoef = np.exp(self.windAffectCt * shifted_wind_lenght * dotProduct)
+            windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
             dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/dist))
             
             qTransfer = (idealQTransfers/dist) * windEffectCoef * dHeightEffectCoef
