@@ -433,13 +433,13 @@ def handle_simulation_buttons(sim_clicks, reset_clicks, n_intervals, simulation_
     trigger = ctx.triggered_id
 
     if trigger == 'simulate-btn' and sim_clicks > 0:
-        return True, False, True, 'all-inputs-simulation-disabled'
+        return True, True, True, 'all-inputs-simulation-disabled'
 
     if trigger == 'reset-btn' and reset_clicks > 0:
         return False, True, False, 'all-inputs-simulation'
     
     if simulation_status['state'] == 'running':
-        return True, False, True, 'all-inputs-simulation-disabled'
+        return True, True, True, 'all-inputs-simulation-disabled'
     
     elif simulation_status['state'] == 'finished':
         return True, False, False, 'all-inputs-simulation-disabled'
@@ -599,9 +599,6 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
         if (simulation_status['progress'] >= 100) and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
             interval_disabled = True
-    elif trigger == 'reset-btn':
-        simulation_status['state'] = 'finished'
-        interval_disabled = True
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'

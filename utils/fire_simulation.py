@@ -55,7 +55,7 @@ class SimGrid:
         self.ambientTemp = 0
         self.boundaryMass = 0
         self.boundaryCe = 0
-        self.boundaryWindVector = None  # Will be np.array([x, y])
+        self.boundaryWindVector = None  # Will be np.array([y, x])
 
         # Wind
         self.windField = None  # 3D array (Y, X, 2)
@@ -158,6 +158,12 @@ class SimGrid:
         self.cellThermalE = self.cellSpecificHeat*self.cellTemperature*self.cellTotalMass # kJ / m**2
     
     def updateGlobalCellMasses(self):
+        # Heal data
+        self.fuelMass = np.where(self.fuelMass<0, 0, self.fuelMass)
+        self.waterMass = np.where(self.waterMass<0, 0, self.waterMass)
+        self.unburnableMass = np.where(self.unburnableMass<0, 0, self.unburnableMass)
+
+
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass # kg / m**2
         self.cellSpecificHeat = (self.unburnableMass*self.unburnableSpecificHeat + self.fuelMass*self.fuelSpecificHeat + self.waterMass*self.waterSpecificHeat)/self.cellTotalMass # kJ / kg*K
 
@@ -190,7 +196,7 @@ class SimGrid:
         stableTempArray = convoluted_qArray/convoluted_DivArray
         # ---------------------------------------------
         
-        neighbors_vectors = np.array([[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]) # From origin to surroundings
+        neighbors_vectors = np.array([[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]]) # From origin to surroundings
         
         for vector in neighbors_vectors:
             # calculations for heat transfer from neighbor to cell
@@ -263,7 +269,7 @@ class SimGrid:
             windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
             dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/dist))
             
-            qTransfer = (idealQTransfers/dist) * windEffectCoef * dHeightEffectCoef
+            qTransfer = (idealQTransfers/(horizontaldist**2)) * windEffectCoef * dHeightEffectCoef
 
             newTE = np.where(qTransfer > 0, newTE + qTransfer * self.transferHeatLossFactor * dT, newTE + qTransfer * dT)
         
@@ -284,7 +290,7 @@ class SimGrid:
         
         waterEvaporates = np.where(cellTemps>self.waterBoilingTemp, True, False) # get where water evaporates (temp>boiling temp)
         newWaterMasses = np.where(waterEvaporates, self.waterMass-((waterQs-neededQsfor100C)/self.waterLatentHeat), self.waterMass) # calculate new water mass accounting for mass loss (based on E)
-        finalWaterMasses = np.where(newWaterMasses >= 0, newWaterMasses, 0) # clamp: if it goes below 0, it stays at 0
+        finalWaterMasses = np.where(newWaterMasses < 0, 0, newWaterMasses) # clamp: if it goes below 0, it stays at 0
         
         finalWaterTemp = np.where(cellTemps <= 100, cellTemps, 100) # clamp: if > 100, stays at 100 (over that translated to evaporation)
         
@@ -305,7 +311,7 @@ class SimGrid:
 
     def burn(self, dT):
         burning = np.where(self.fuelTemperature > self.fuelIgnitingTemp, 1, 0) # 1 where temp allows burning
-        self.fireIntensity = burning * self.fuelBurnRate * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
+        self.fireIntensity = burning * self.fuelMass * self.fuelBurnRate * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
     
         # burn also based on neighbors
         neighborBurnFactor = 0.05
@@ -317,6 +323,7 @@ class SimGrid:
     
     
         self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)
+        self.fuelMass = np.where(self.fuelMass<0, 0, self.fuelMass)
         self.updateGlobalCellMasses()
         self.cellTemperature = (self.cellThermalE+releasedEnergy)/(self.cellTotalMass*self.cellSpecificHeat) # update cell temp based on E released
         self.updateCellsThermalEBasedOnTemp()
@@ -356,7 +363,7 @@ class FramesRecorder():
         self.data["timestamps"].append(second)
 
         # Fuel moisture (%)
-        moisture = (self.referenceGrid.waterMass / self.referenceGrid.fuelMass) * 100
+        moisture = (np.where(self.referenceGrid.fuelMass == 0, 0, self.referenceGrid.waterMass / self.referenceGrid.fuelMass)) * 100
         self.data['fuel_moisture_percentage']["data"].append(np.copy(moisture))
         self._update_min_max('fuel_moisture_percentage', moisture)
 
