@@ -32,8 +32,6 @@ layout = html.Div([
     
             # Dropdown for selecting data type (temperature, humidity, etc.)
             html.Div([
-                dcc.Input(placeholder="property value",id='data-mod-value-revision', type='number', value=0, step=0.01),
-                html.Label("K", id="data-mod-units-revision"),
                 dcc.Dropdown(
                     id='data-type-dropdown-revision',
                     options=[
@@ -49,7 +47,7 @@ layout = html.Div([
                     clearable=False,  # No "reset" button
                     searchable=False
                 ),
-                html.Button('Apply to all', id='mod-all-btn-revision', className="button")
+                html.Label("UNITS: K", id="data-mod-units-revision"),
             ], className="input-row"),
 
             html.Div([
@@ -155,7 +153,7 @@ def manage_upload_and_figure(file_contents, visiblePlotTypeInput, filename, visi
         fig.data[1].z = dataArrays[visiblePlotTypeInput]["array"]
         fig.data[1].zmin = np.min(dataArrays[visiblePlotTypeInput]["array"])
         fig.data[1].zmax = np.max(dataArrays[visiblePlotTypeInput]["array"])
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, fig, dataArrays[visiblePlotTypeInput]["units"]
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, fig, f"UNITS: {dataArrays[visiblePlotTypeInput]['units']}"
 
     else:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update

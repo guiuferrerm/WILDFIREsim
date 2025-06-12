@@ -33,6 +33,18 @@
     white-space: normal;    /* Allow the text to break and wrap into multiple lines */
 }
 
+#data-mod-units-revision {
+    font-size: 14px;
+    color: #36454F;  /* Deep Blue-Gray */
+    margin: 5px 0px 0px 0px;
+}
+
+#data-mod-units {
+    font-size: 14px;
+    color: #36454F;  /* Deep Blue-Gray */
+    margin: 5px 0px 0px 0px;
+}
+
 .input-row input {
     width: 100px;  /* Ensure all inputs are the same width */
     height: 20px;

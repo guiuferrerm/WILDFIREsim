@@ -44,7 +44,7 @@ layout = html.Div([
 
             # Row for East inputs
             html.Div([
-                html.Label('Origin E (longitude):'),
+                html.Label('Origin E (long.):'),
                 dcc.Input(id='originE', type='number', value=-8.0, step=0.0001),
 
                 html.Label('Min E (longitude):'),
@@ -56,7 +56,7 @@ layout = html.Div([
 
             # Row for Arcsec Interval
             html.Div([
-                html.Label('Arcsec Interval (30m/arcsec):'),
+                html.Label('Measure interval (arcsec):'),
                 dcc.Input(id='arcsecInterval', type='number', value=3, step=0.0001),
             ], className="input-row"),
 
