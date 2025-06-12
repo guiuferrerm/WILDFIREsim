@@ -43,7 +43,7 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
             "boundary_avg_wind_vector_x": 0,
             "boundary_avg_wind_vector_y": 0,
 
-            "heat_transfer_factor": 0.003,
+            "heat_transfer_rate": 0.003,
             "slope_effect_factor": 0.2,
             "wind_effect_factor": 1,
             "fuel_burn_rate": 0.001,

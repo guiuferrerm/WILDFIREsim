@@ -61,7 +61,7 @@ class SimGrid:
         self.windField = None  # 3D array (Y, X, 2)
 
         # Fire Spread Constants
-        self.heatTransferFactor = 0
+        self.heatTransferRate = 0
         self.slopeEffectFactor = 0
         self.windEffectFactor = 0
         self.heatLossFactor = 0
@@ -119,7 +119,7 @@ class SimGrid:
             mod_settings["boundary_avg_wind_vector_y"]
         ])
 
-        self.heatTransferFactor = mod_settings["heat_transfer_factor"]
+        self.heatTransferRate = mod_settings["heat_transfer_rate"] # Kj/(s*m*K)
         self.slopeEffectFactor = mod_settings["slope_effect_factor"]
         self.windEffectFactor = mod_settings["wind_effect_factor"]
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
@@ -171,7 +171,7 @@ class SimGrid:
     def specialModifications(self):
         pass
 
-    def transferHeat(self, dT):
+    def transferHeat(self, dt):
         '''
         Funtion that manages all the heat transmission between cells. Accounting for a simplified approach for the moment, possible
         application of conduction, convection and radiation in future.
@@ -201,29 +201,33 @@ class SimGrid:
         for vector in neighbors_vectors:
             # calculations for heat transfer from neighbor to cell
             ops_vector = -vector # note - sign: if neighbor is at (1,0), the transfer is (-1,0)
-            ops_vector_lenght = math.sqrt(ops_vector[0]**2 + ops_vector[1]**2)
-            normalized_ops_vector = ops_vector/ops_vector_lenght
+
+            dx = ops_vector[1] * self.cellSizeX
+            dy = ops_vector[0] * self.cellSizeY
+
+            real_vector = [dy, dx]
+            real_vector_lenght = math.sqrt(dx*dx + dy*dy)
+            normalized_real_vector = [n / real_vector_lenght for n in real_vector]
         
             # shift temps and deltaTemp
-            temp = np.copy(stableTempArray)
+            new_temps = np.copy(stableTempArray)
             boundary_value = self.ambientTemp
             
             if ops_vector[0] > 0:
-                temp[-ops_vector[0]:, :] = boundary_value
+                new_temps[-ops_vector[0]:, :] = boundary_value
             elif ops_vector[0] < 0:
-                temp[:-ops_vector[0], :] = boundary_value
+                new_temps[:-ops_vector[0], :] = boundary_value
             if ops_vector[1] > 0:
-                temp[:, -ops_vector[1]:] = boundary_value
+                new_temps[:, -ops_vector[1]:] = boundary_value
             elif ops_vector[1] < 0:
-                temp[:, :-ops_vector[1]] = boundary_value
+                new_temps[:, :-ops_vector[1]] = boundary_value
             
-            shifted_stable_temp = np.roll(temp, (ops_vector[0], ops_vector[1]), axis=(0,1))
-            deltaTemps = shifted_stable_temp - self.cellTemperature
+            shifted_new_temps = np.roll(new_temps, (ops_vector[0], ops_vector[1]), axis=(0,1))
+            deltaT = shifted_new_temps - self.cellTemperature
             
-            # Q transfers
-            idealQTransfers = self.heatTransferFactor*self.cellTotalMass*self.cellSpecificHeat*deltaTemps
+            conductionRate = self.heatTransferRate * deltaT / real_vector_lenght
             
-            # shift wind
+            # modifiers ---------------------------
             wind = np.copy(self.windField)
             boundary_value = np.copy(self.boundaryWindVector)
             
@@ -238,8 +242,8 @@ class SimGrid:
             
             shifted_wind = np.roll(wind, (ops_vector[0], ops_vector[1]), axis=(0, 1))
             shifted_wind_lenght = np.sqrt(shifted_wind[:,:,0]**2 + shifted_wind[:,:,1]**2)
-            
-            # shift height
+
+
             height = np.copy(self.cellHeight)
             
             if ops_vector[0] > 0:
@@ -254,24 +258,26 @@ class SimGrid:
             shifted_height = np.roll(height, (ops_vector[0], ops_vector[1]), axis=(0,1))
             deltaHeight = self.cellHeight - shifted_height
             
-            # calculations
-            # shifted_wind_lenght = np.nan_to_num(shifted_wind_lenght, nan=0, posinf=0, neginf=0)
-            
             normalized_shifted_wind = np.stack((
                 np.where(shifted_wind_lenght!=0, shifted_wind[:,:,0]/shifted_wind_lenght, 0),
                 np.where(shifted_wind_lenght!=0, shifted_wind[:,:,1]/shifted_wind_lenght, 0)
             ), axis=-1)
             
-            dotProduct = normalized_ops_vector[0]*normalized_shifted_wind[:,:,0] + normalized_ops_vector[1]*normalized_shifted_wind[:,:,1]
+            dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
             
-            horizontaldist = math.sqrt((ops_vector[0]*self.cellSizeY)**2 + (ops_vector[1]*self.cellSizeX)**2)
-            dist = np.sqrt(deltaHeight**2 + horizontaldist**2)
-            windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
-            dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/dist))
-            
-            qTransfer = (idealQTransfers/(horizontaldist**2)) * windEffectCoef * dHeightEffectCoef
+            totalDistance = np.sqrt(deltaHeight**2 + real_vector_lenght**2)
 
-            newTE = np.where(qTransfer > 0, newTE + qTransfer * self.transferHeatLossFactor * dT, newTE + qTransfer * dT)
+            windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
+            dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/totalDistance))
+
+            # modifiers end ------------
+
+            conductionRate *= windEffectCoef
+            conductionRate *= dHeightEffectCoef
+            
+            Q = conductionRate * dt
+
+            newTE = np.where(Q > 0, newTE + Q * self.transferHeatLossFactor * dt, newTE + Q)
         
         # update real values with temporary computation variables
         self.cellThermalE = np.copy(newTE)
