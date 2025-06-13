@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# For this project, as uses cache from diskcache
+cache/
+
 # DS STOREEE
 .DS_Store
 
