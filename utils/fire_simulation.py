@@ -2,6 +2,7 @@ import numpy as np
 import math
 from scipy.signal import convolve2d
 from utils.cache_config import cache
+from utils import math_and_geometry_tools
 
 class SimGrid:
     # GRID SETUP, CREATION AND RESET
@@ -224,8 +225,10 @@ class SimGrid:
             
             shifted_new_temps = np.roll(new_temps, (ops_vector[0], ops_vector[1]), axis=(0,1))
             deltaT = shifted_new_temps - self.cellTemperature
+
+            crossSectionLenght = math_and_geometry_tools.get_1d_cross_section_lenght(dx,dy,self.cellSizeX,self.cellSizeY)
             
-            conductionRate = self.heatTransferRate * deltaT / real_vector_lenght
+            conductionRate = self.heatTransferRate * crossSectionLenght * deltaT / real_vector_lenght
             
             # modifiers ---------------------------
             wind = np.copy(self.windField)
@@ -276,8 +279,9 @@ class SimGrid:
             conductionRate *= dHeightEffectCoef
             
             Q = conductionRate * dt
+            QperM2 = Q/self.cellArea
 
-            newTE = np.where(Q > 0, newTE + Q * self.transferHeatLossFactor * dt, newTE + Q)
+            newTE = np.where(QperM2 > 0, newTE + QperM2 * self.transferHeatLossFactor, newTE + QperM2)
         
         # update real values with temporary computation variables
         self.cellThermalE = np.copy(newTE)
