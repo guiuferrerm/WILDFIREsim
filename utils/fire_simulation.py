@@ -3,16 +3,18 @@ import math
 from scipy.signal import convolve2d
 from utils.cache_config import cache
 from utils import math_and_geometry_tools
+from utils import grid_and_simulation_tools
 
 class SimGrid:
     # GRID SETUP, CREATION AND RESET
     def __init__(self):
         # Arrays
-        self.cellSizeX = 0
-        self.cellSizeY = 0
+        self.cellSizeX = 0 # in meters
+        self.cellSizeY = 0 # in meters
         self.cellArea = 0
         self.gridSizeX = 0
         self.gridSizeY = 0
+        self.cellEffectRadius = 0 # in meters
 
         # Geography
         self.cellHeight = None
@@ -83,6 +85,7 @@ class SimGrid:
         self.cellArea = self.cellSizeX * self.cellSizeY
         self.gridSizeX = int(unmod_settings["array_dim_x"])
         self.gridSizeY = int(unmod_settings["array_dim_y"])
+        self.cellEffectRadius = mod_settings["cell_effect_radius"]
 
         self.cellHeight = np.copy(heightArray.astype(np.int32))
 
@@ -180,11 +183,12 @@ class SimGrid:
         '''
         # copies to modify those properties and just change real value after all changes (for stability)
         newTE = np.copy(self.cellThermalE)
+
+        radius = self.cellEffectRadius
+
+        neighbors_kernel, neighbors_vectors = grid_and_simulation_tools.generate_kernel_and_vectors(radius, self.cellSizeX, self.cellSizeY)
         
         # CALCULATE STABLE TEMP -----------------------
-        # cells considered neighbors and with wich we calculate heat transfer
-        neighbors_kernel = np.array([[1,1,1],[1,1,1],[1,1,1]])
-        
         qArray = self.cellTotalMass*self.cellSpecificHeat*self.cellTemperature
         qDivArray = self.cellTotalMass*self.cellSpecificHeat
         
@@ -195,10 +199,8 @@ class SimGrid:
         convoluted_DivArray = convolve2d(qDivArray, neighbors_kernel, mode='same', fillvalue=boundaryDiv)
         
         stableTempArray = convoluted_qArray/convoluted_DivArray
-        # ---------------------------------------------
-        
-        neighbors_vectors = np.array([[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]]) # From origin to surroundings
-        
+
+        # TRANSFER HEAT --------------------------------
         for vector in neighbors_vectors:
             # calculations for heat transfer from neighbor to cell
             ops_vector = -vector # note - sign: if neighbor is at (1,0), the transfer is (-1,0)
@@ -246,20 +248,7 @@ class SimGrid:
             shifted_wind = np.roll(wind, (ops_vector[0], ops_vector[1]), axis=(0, 1))
             shifted_wind_lenght = np.sqrt(shifted_wind[:,:,0]**2 + shifted_wind[:,:,1]**2)
 
-
-            height = np.copy(self.cellHeight)
-            
-            if ops_vector[0] > 0:
-                height[-ops_vector[0]:, :] = height[0,:].reshape(1, -1)
-            elif ops_vector[0] < 0:
-                height[:-ops_vector[0], :] = height[-1,:].reshape(1, -1)
-            if ops_vector[1] > 0:
-                height[:, -ops_vector[1]:] = height[:,0].reshape(-1, 1)
-            elif ops_vector[1] < 0:
-                height[:, :-ops_vector[1]] = height[:,-1].reshape(-1, 1)
-            
-            shifted_height = np.roll(height, (ops_vector[0], ops_vector[1]), axis=(0,1))
-            deltaHeight = self.cellHeight - shifted_height
+            deltaHeight = grid_and_simulation_tools.calculate_delta_height_array_with_vector(self.cellHeight, ops_vector)
             
             normalized_shifted_wind = np.stack((
                 np.where(shifted_wind_lenght!=0, shifted_wind[:,:,0]/shifted_wind_lenght, 0),
@@ -312,14 +301,14 @@ class SimGrid:
         self.updateGlobalCellMasses()
         self.updateCellsThermalEBasedOnTemp()
 
-    def loseHeat(self, dT):
+    def loseHeat(self, dt):
         # The temperature decay factor towards ambient temperature
-        self.cellTemperature = self.initialConditions['cellTemperature'] + (self.cellTemperature - self.initialConditions['cellTemperature']) * (self.heatLossFactor ** dT)
+        self.cellTemperature = self.initialConditions['cellTemperature'] + (self.cellTemperature - self.initialConditions['cellTemperature']) * (self.heatLossFactor ** dt)
         
         # Update thermal behavior based on the new temperature
         self.updateCellsThermalEBasedOnTemp()
 
-    def burn(self, dT):
+    def burn(self, dt):
         burning = np.where(self.fuelTemperature > self.fuelIgnitingTemp, 1, 0) # 1 where temp allows burning
         self.fireIntensity = burning * self.fuelMass * self.fuelBurnRate * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
     
@@ -329,7 +318,7 @@ class SimGrid:
         self.fireIntensity = convolve2d(self.fireIntensity, neighbors_kernel, mode='same', fillvalue=0)
     
         # calculate released energy accounting for neighbors
-        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dT
+        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt
     
     
         self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)

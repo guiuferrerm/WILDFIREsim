@@ -367,6 +367,8 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
         
         else:
             if fig.data and uploaded_data:
+                X = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
+                Y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
                 fig.data[0].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]
                 fig.data[0].y = np.array(uploaded_data["y_deg_mesh"])[:, 0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["y_meter_mesh"])[:, 0]
                 fig.data[2].x = np.array(uploaded_data["x_deg_mesh"])[0] if meshgrid_type == 'meshgridlatlondeg' else np.array(uploaded_data["x_meter_mesh"])[0]

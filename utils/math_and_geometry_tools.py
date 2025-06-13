@@ -16,8 +16,8 @@ def get_C_for_line_forcing_point(a,b,forcedPointX,forcedPointY):
 
 def get_1d_cross_section_lenght(vectx,vecty,cellSizeX,cellSizeY):
     # General equation of the line ax+by+c=0
-    a = vectx
-    b = vecty
+    a = vecty
+    b = -vectx
     c1 = 0
     if vectx/abs(vectx) + vecty/abs(vecty) == 0:
         c2 = get_C_for_line_forcing_point(a,b, cellSizeX/2, cellSizeY/2) # upper-right corner C

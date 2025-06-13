@@ -31,6 +31,8 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
         },
 
         "mod_settings": {
+            "cell_effect_radius": 250,
+
             "fuel_igniting_temp": 573.15,
             "fuel_specific_heat": 1.76,
             "fuel_calorific_value": 20900.0,
