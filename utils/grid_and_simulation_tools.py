@@ -34,7 +34,6 @@ def generate_kernel_and_vectors(radius_m, cellSizeX, cellSizeY):
     
     return kernel_array, vectors
 
-
 def calculate_delta_height_array_with_vector(heightInitialArray, vector):
     heightArray = np.copy(heightInitialArray)
 
@@ -51,3 +50,16 @@ def calculate_delta_height_array_with_vector(heightInitialArray, vector):
     deltaHeight = heightInitialArray - shifted_height
 
     return deltaHeight
+
+def shift_array_and_fill_with_value(array, vector, value):
+    if vector[0] > 0:
+        array[-vector[0]:, :] = value
+    elif vector[0] < 0:
+        array[:-vector[0], :] = value
+    if vector[1] > 0:
+        array[:, -vector[1]:] = value
+    elif vector[1] < 0:
+        array[:, :-vector[1]] = value
+    
+    shifted_array = np.roll(array, (vector[0], vector[1]), axis=(0, 1))
+    return shifted_array

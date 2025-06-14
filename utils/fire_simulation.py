@@ -71,6 +71,10 @@ class SimGrid:
         self.transferHeatLossFactor = 0
         self.burnHeatLossFactor = 0
 
+        self.neighbors_kernel = None
+        self.neighbors_vector_list_array = None
+        self.heightGradients = None
+
     def reset(self):
         self.__init__()
 
@@ -149,6 +153,24 @@ class SimGrid:
         self.cellTemperature = np.where(initial_igniting_cells == 1, 1200, self.cellTemperature)
         self.updateCellsThermalEBasedOnTemp()
 
+        self.neighbors_kernel, self.neighbors_vector_list_array = grid_and_simulation_tools.generate_kernel_and_vectors(self.cellEffectRadius, self.cellSizeX, self.cellSizeY)
+
+        self.heightGradients = {}
+
+        # TRANSFER HEAT --------------------------------
+        for vector in self.neighbors_vector_list_array:
+            # calculations for heat transfer from neighbor to cell
+            ops_vector = -vector # note - sign: if neighbor is at (1,0), the transfer is (-1,0)
+
+            dx = ops_vector[1] * self.cellSizeX
+            dy = ops_vector[0] * self.cellSizeY
+
+            real_vector = [dy, dx]
+            real_vector_lenght = math.sqrt(dx*dx + dy*dy)
+            normalized_real_vector = [n / real_vector_lenght for n in real_vector]
+
+            self.heightGradients[f"{ops_vector}"] = grid_and_simulation_tools.calculate_delta_height_array_with_vector(self.cellHeight, ops_vector)
+
     # GRID SIMULATION
     def runSimStep(self, dt=1):
         self.specialModifications()
@@ -163,9 +185,9 @@ class SimGrid:
     
     def updateGlobalCellMasses(self):
         # Heal data
-        self.fuelMass = np.where(self.fuelMass<0, 0, self.fuelMass)
-        self.waterMass = np.where(self.waterMass<0, 0, self.waterMass)
-        self.unburnableMass = np.where(self.unburnableMass<0, 0, self.unburnableMass)
+        self.fuelMass = np.clip(self.fuelMass, 0, None)
+        self.waterMass = np.clip(self.waterMass, 0, None)
+        self.unburnableMass = np.clip(self.unburnableMass, 0, None)
 
 
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass # kg / m**2
@@ -177,32 +199,17 @@ class SimGrid:
 
     def transferHeat(self, dt):
         '''
-        Funtion that manages all the heat transmission between cells. Accounting for a simplified approach for the moment, possible
+        Funtion that manages all the heat transmission between cells. Simplified approach for the moment, possible
         application of conduction, convection and radiation in future.
         
         '''
         # copies to modify those properties and just change real value after all changes (for stability)
         newTE = np.copy(self.cellThermalE)
 
-        radius = self.cellEffectRadius
-
-        neighbors_kernel, neighbors_vectors = grid_and_simulation_tools.generate_kernel_and_vectors(radius, self.cellSizeX, self.cellSizeY)
-        
-        # CALCULATE STABLE TEMP -----------------------
-        qArray = self.cellTotalMass*self.cellSpecificHeat*self.cellTemperature
-        qDivArray = self.cellTotalMass*self.cellSpecificHeat
-        
-        boundaryQ = self.boundaryMass*self.boundaryCe*self.ambientTemp
-        boundaryDiv =self.boundaryMass*self.boundaryCe
-        
-        convoluted_qArray = convolve2d(qArray, neighbors_kernel, mode='same', fillvalue=boundaryQ)
-        convoluted_DivArray = convolve2d(qDivArray, neighbors_kernel, mode='same', fillvalue=boundaryDiv)
-        
-        stableTempArray = convoluted_qArray/convoluted_DivArray
-
         # TRANSFER HEAT --------------------------------
-        for vector in neighbors_vectors:
+        for vector in self.neighbors_vector_list_array:
             # calculations for heat transfer from neighbor to cell
+            # vector preparation ----------------------
             ops_vector = -vector # note - sign: if neighbor is at (1,0), the transfer is (-1,0)
 
             dx = ops_vector[1] * self.cellSizeX
@@ -212,64 +219,38 @@ class SimGrid:
             real_vector_lenght = math.sqrt(dx*dx + dy*dy)
             normalized_real_vector = [n / real_vector_lenght for n in real_vector]
         
-            # shift temps and deltaTemp
-            new_temps = np.copy(stableTempArray)
-            boundary_value = self.ambientTemp
-            
-            if ops_vector[0] > 0:
-                new_temps[-ops_vector[0]:, :] = boundary_value
-            elif ops_vector[0] < 0:
-                new_temps[:-ops_vector[0], :] = boundary_value
-            if ops_vector[1] > 0:
-                new_temps[:, -ops_vector[1]:] = boundary_value
-            elif ops_vector[1] < 0:
-                new_temps[:, :-ops_vector[1]] = boundary_value
-            
-            shifted_new_temps = np.roll(new_temps, (ops_vector[0], ops_vector[1]), axis=(0,1))
-            deltaT = shifted_new_temps - self.cellTemperature
+            # shift temps and deltaTemp ---------------
+            shifted_temps = grid_and_simulation_tools.shift_array_and_fill_with_value(np.copy(self.cellTemperature), ops_vector, self.ambientTemp)
+            deltaT = shifted_temps - self.cellTemperature
 
+            # calculate conduction rate ---------------
             crossSectionLenght = math_and_geometry_tools.get_1d_cross_section_lenght(dx,dy,self.cellSizeX,self.cellSizeY)
-            
             conductionRate = self.heatTransferRate * crossSectionLenght * deltaT / real_vector_lenght
             
-            # modifiers ---------------------------
-            wind = np.copy(self.windField)
-            boundary_value = np.copy(self.boundaryWindVector)
-            
-            if ops_vector[0] > 0:
-                wind[-ops_vector[0]:, :] = boundary_value
-            elif ops_vector[0] < 0:
-                wind[:-ops_vector[0], :] = boundary_value
-            if ops_vector[1] > 0:
-                wind[:, -ops_vector[1]:] = boundary_value
-            elif ops_vector[1] < 0:
-                wind[:, :-ops_vector[1]] = boundary_value
-            
-            shifted_wind = np.roll(wind, (ops_vector[0], ops_vector[1]), axis=(0, 1))
+            # wind modifier ---------------------------
+            shifted_wind = grid_and_simulation_tools.shift_array_and_fill_with_value(np.copy(self.windField), ops_vector, np.copy(self.boundaryWindVector))
             shifted_wind_lenght = np.sqrt(shifted_wind[:,:,0]**2 + shifted_wind[:,:,1]**2)
 
-            deltaHeight = grid_and_simulation_tools.calculate_delta_height_array_with_vector(self.cellHeight, ops_vector)
-            
             normalized_shifted_wind = np.stack((
                 np.where(shifted_wind_lenght!=0, shifted_wind[:,:,0]/shifted_wind_lenght, 0),
                 np.where(shifted_wind_lenght!=0, shifted_wind[:,:,1]/shifted_wind_lenght, 0)
             ), axis=-1)
-            
-            dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
-            
-            totalDistance = np.sqrt(deltaHeight**2 + real_vector_lenght**2)
 
+            dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
             windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
+
+            # height modifier -------------------------
+            deltaHeight = self.heightGradients[f"{ops_vector}"]
+            totalDistance = np.sqrt(deltaHeight**2 + real_vector_lenght**2)
             dHeightEffectCoef = np.exp(self.slopeEffectFactor * (deltaHeight/totalDistance))
 
-            # modifiers end ------------
-
+            # apply modifiers -------------------------
             conductionRate *= windEffectCoef
             conductionRate *= dHeightEffectCoef
-            
+
+            # transfer heat ---------------------------
             Q = conductionRate * dt
             QperM2 = Q/self.cellArea
-
             newTE = np.where(QperM2 > 0, newTE + QperM2 * self.transferHeatLossFactor, newTE + QperM2)
         
         # update real values with temporary computation variables
@@ -289,9 +270,9 @@ class SimGrid:
         
         waterEvaporates = np.where(cellTemps>self.waterBoilingTemp, True, False) # get where water evaporates (temp>boiling temp)
         newWaterMasses = np.where(waterEvaporates, self.waterMass-((waterQs-neededQsfor100C)/self.waterLatentHeat), self.waterMass) # calculate new water mass accounting for mass loss (based on E)
-        finalWaterMasses = np.where(newWaterMasses < 0, 0, newWaterMasses) # clamp: if it goes below 0, it stays at 0
+        finalWaterMasses = np.clip(newWaterMasses, 0, None) # clamp: if it goes below 0, it stays at 0
         
-        finalWaterTemp = np.where(cellTemps <= 100, cellTemps, 100) # clamp: if > 100, stays at 100 (over that translated to evaporation)
+        finalWaterTemp = np.clip(cellTemps, None, 100) # clamp: if > 100, stays at 100 (over that translated to evaporation)
         
         self.waterTemperature = np.copy(finalWaterTemp)
         self.waterMass = finalWaterMasses
@@ -314,15 +295,15 @@ class SimGrid:
     
         # burn also based on neighbors
         neighborBurnFactor = 0.05
-        neighbors_kernel = np.array([[0,neighborBurnFactor,0],[neighborBurnFactor,1,neighborBurnFactor],[0,neighborBurnFactor,0]])
+        neighbors_kernel = np.array([[0,neighborBurnFactor,0],[neighborBurnFactor,1-neighborBurnFactor*4,neighborBurnFactor],[0,neighborBurnFactor,0]])
         self.fireIntensity = convolve2d(self.fireIntensity, neighbors_kernel, mode='same', fillvalue=0)
     
         # calculate released energy accounting for neighbors
-        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt
+        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt # per square meter
     
     
         self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)
-        self.fuelMass = np.where(self.fuelMass<0, 0, self.fuelMass)
+        self.fuelMass = np.clip(self.fuelMass, 0, None)
         self.updateGlobalCellMasses()
         self.cellTemperature = (self.cellThermalE+releasedEnergy)/(self.cellTotalMass*self.cellSpecificHeat) # update cell temp based on E released
         self.updateCellsThermalEBasedOnTemp()

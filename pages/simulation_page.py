@@ -131,6 +131,7 @@ layout = html.Div([
 
 simulation_grid = fire_simulation.SimGrid()
 frames_recorder = fire_simulation.FramesRecorder(simulation_grid)
+disableIntervalNextCall = False
 
 
 # Upload
@@ -272,7 +273,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                     yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
                     xaxis2=dict(matches='x1'),
                     yaxis2=dict(matches='y1'),
-                    dragmode='select'  # Enable selection on the second plot
+                    dragmode='zoom'  # Enable selection on the second plot
                 )
 
         return (
@@ -318,7 +319,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                     yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
                     xaxis2=dict(matches='x1'),
                     yaxis2=dict(matches='y1'),
-                    dragmode='select'  # Enable selection on the second plot
+                    dragmode='zoom'  # Enable selection on the second plot
                 )
 
         return (
@@ -383,7 +384,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
                     yaxis=dict(scaleanchor="x"),  # Link the y-axis to the x-axis
                     xaxis2=dict(matches='x1'),
                     yaxis2=dict(matches='y1'),
-                    dragmode='select'  # Enable selection on the second plot
+                    dragmode='select',  # Enable selection on the second plot
                 )
 
         return (
@@ -594,14 +595,17 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
     prevent_initial_call=True
 )
 def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, simulation_status, latestFrameStore):
+    global disableIntervalNextCall
     trigger = ctx.triggered_id
     interval_disabled = dash.no_update
 
     if trigger == 'frame-interval':
+        if disableIntervalNextCall:
+            interval_disabled = True
         simulation_status['progress'] = float(cache.get("progress") or 0)
         if (simulation_status['progress'] >= 100) and simulation_status['state'] != 'finished':
             simulation_status['state'] = 'finished'
-            interval_disabled = True
+            disableIntervalNextCall = True
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'
