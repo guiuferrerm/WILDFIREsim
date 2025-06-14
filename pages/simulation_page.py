@@ -555,6 +555,7 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
     else:
         if cache.get("progress") <= 99:
             newData = cache.get("new_frames")
+            print(f'SIMPAGE--                                 fetched timestamps: {newData["timestamps"]}')
             cache.set("new_frames", 
                     {   "timestamps": [],
                         "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
@@ -574,7 +575,9 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
             return newData
 
         else:
-            return cache.get("all_frames")
+            alldata = cache.get("all_frames")
+            print(f'SIMPAGE--                          fetched timestamps: {alldata["timestamps"]}')
+            return alldata
 
 # Manage simulation status and frame-interval in one callback
 @app.callback(
@@ -609,6 +612,7 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'
+            disableIntervalNextCall = False
             interval_disabled = False
     elif trigger == 'upload-wfss-for-simulation':
         simulation_status['state'] = 'preparing'
