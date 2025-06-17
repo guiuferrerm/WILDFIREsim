@@ -269,10 +269,12 @@ class SimGrid:
         neededQsfor100C = self.waterMass*self.waterSpecificHeat*self.waterBoilingTemp # calculate wich thermal energy would water have at boiling temp
         
         waterEvaporates = np.where(cellTemps>self.waterBoilingTemp, True, False) # get where water evaporates (temp>boiling temp)
-        newWaterMasses = np.where(waterEvaporates, self.waterMass-((waterQs-neededQsfor100C)/self.waterLatentHeat), self.waterMass) # calculate new water mass accounting for mass loss (based on E)
-        finalWaterMasses = np.clip(newWaterMasses, 0, None) # clamp: if it goes below 0, it stays at 0
+        massDeduction = np.where(waterEvaporates, (waterQs-neededQsfor100C)/self.waterLatentHeat, 0)
+        massDeductionClamped = np.where(massDeduction>self.waterMass, self.waterMass, massDeduction)
+        newWaterMasses = self.waterMass-massDeductionClamped # calculate new water mass accounting for mass loss (based on E)
+        finalWaterMasses = np.maximum(newWaterMasses, 0.0) # clamp: if it goes below 0, it stays at 0
         
-        finalWaterTemp = np.clip(cellTemps, None, 100) # clamp: if > 100, stays at 100 (over that translated to evaporation)
+        finalWaterTemp = np.clip(cellTemps, None, self.waterBoilingTemp) # clamp: if > 100, stays at 100 (over that translated to evaporation)
         
         self.waterTemperature = np.copy(finalWaterTemp)
         self.waterMass = finalWaterMasses
