@@ -292,6 +292,7 @@ class SimGrid:
         self.updateCellsThermalEBasedOnTemp()
 
     def burn(self, dt):
+        self.updateCellsThermalEBasedOnTemp()
         burning = np.where(self.fuelTemperature > self.fuelIgnitingTemp, 1, 0) # 1 where temp allows burning
         self.fireIntensity = burning * self.fuelMass * self.fuelBurnRate * self.fuelCalorificValue # calculate fire intensity --> kJ/m^2*s
     
@@ -301,7 +302,8 @@ class SimGrid:
         self.fireIntensity = convolve2d(self.fireIntensity, neighbors_kernel, mode='same', fillvalue=0)
     
         # calculate released energy accounting for neighbors
-        releasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt # per square meter
+        idealReleasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt # per square meter
+        releasedEnergy = np.clip(idealReleasedEnergy, None, self.fuelMass*self.fuelCalorificValue)
     
     
         self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)
