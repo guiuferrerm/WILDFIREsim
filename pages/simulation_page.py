@@ -556,7 +556,7 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
         
         return all_data
     else:
-        if cache.get("progress") <= 99:
+        if cache.get("progress") < 100:
             newData = cache.get("new_frames")
             print(f'SIMPAGE--                                 fetched timestamps: {newData["timestamps"]}')
             cache.set("new_frames", 
@@ -610,7 +610,7 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
         if disableIntervalNextCall:
             interval_disabled = True
         simulation_status['progress'] = float(cache.get("progress") or 0)
-        if (simulation_status['progress'] >= 100) and simulation_status['state'] != 'finished':
+        if (simulation_status['progress'] >= 100):
             simulation_status['state'] = 'finished'
             disableIntervalNextCall = True
     elif trigger == 'simulate-btn':

@@ -397,9 +397,6 @@ class FramesRecorder():
         )
         self.data["fire_time_evolution"]["data"].append(np.copy(current_fire_time_evolution))
         self._update_min_max('fire_time_evolution', current_fire_time_evolution)
-
-        # Progress
-        self.simulationProgress = (second * 100) / totalTime
     
 def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterval):
     print("")
@@ -452,6 +449,8 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
     while elapsedTime < totalTime:
         gridHolder.runSimStep(deltaTime)
         elapsedTime += deltaTime
+        recorderHolder.simulationProgress = (elapsedTime / totalTime) * 100
+        cache.set("progress", recorderHolder.simulationProgress)
         elapsedTimeForPlotRecord += deltaTime
         
         if elapsedTimeForPlotRecord >= (frameRecordInterval):  # Check if 30 minutes (1800 seconds) have passed
@@ -475,7 +474,6 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
             cache.set("last_frame_sent", len(recorderHolder.data["timestamps"]))
             cache.set("new_frames", dataToSend)
             cache.set("all_frames", recorderHolder.data)
-            cache.set("progress", recorderHolder.simulationProgress)
     
     cache.set("progress", 100)
     
