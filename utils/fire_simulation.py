@@ -328,7 +328,8 @@ class FramesRecorder():
             "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
             "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
             "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
-            "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
+            "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')},
+            "fire_time_evolution": {"data": [], 'colormap': 'turbo', 'min': float('inf'), 'max': float('-inf')}
         }
 
         self.simulationProgress = 0
@@ -366,6 +367,37 @@ class FramesRecorder():
         self.data["fuel_mass_kg"]["data"].append(np.copy(fuel_mass))
         self._update_min_max('fuel_mass_kg', fuel_mass)
 
+        # Fire time evolution
+        # Initialize fire_time_evolution for the first record if it's empty
+        if not self.data["fire_time_evolution"]["data"]:
+            # All cells are initially not burned (or set to initial state for comparison)
+            initial_fire_state = np.zeros_like(fuel_mass, dtype=float) # Or np.full_like(fuel_mass, np.nan)
+            self.data["fire_time_evolution"]["data"].append(initial_fire_state)
+
+        # Get the previous fuel mass and fire time evolution states
+        if len(self.data["fuel_mass_kg"]["data"]) > 1:
+            previous_fuel_mass = self.data["fuel_mass_kg"]["data"][-2]
+        else:
+            previous_fuel_mass = self.data["fuel_mass_kg"]["data"][-1]
+        previous_fire_time_evolution = self.data["fire_time_evolution"]["data"][-1] # This is already the last appended element
+
+        # Determine where fuel mass has decreased (indicating burning) AND where it was previously not marked as burned
+        # You might want a threshold for "significantly decreased" rather than just any decrease
+        # For simplicity, let's assume a decrease means it's burning.
+        # This condition will be true for cells that are currently burning AND have reduced fuel.
+        burning_condition = np.less(fuel_mass, previous_fuel_mass)
+
+        # Update fire_time_evolution:
+        # If a cell is burning (burning_condition is True) AND it hasn't been marked as burned yet (previous_fire_time_evolution == 0),
+        # then set its time to the current 'second'. Otherwise, keep its previous time.
+        current_fire_time_evolution = np.where(
+            np.logical_and(burning_condition, previous_fire_time_evolution == 0),
+            second/60, #minutes
+            previous_fire_time_evolution
+        )
+        self.data["fire_time_evolution"]["data"].append(np.copy(current_fire_time_evolution))
+        self._update_min_max('fire_time_evolution', current_fire_time_evolution)
+
         # Progress
         self.simulationProgress = (second * 100) / totalTime
     
@@ -379,21 +411,24 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
                 "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
                 "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
                 "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
-                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fire_time_evolution": {"data": [], 'colormap': None, 'min': None, 'max': None},
             })
     cache.set("all_frames", 
             {   "timestamps": [],
                 "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
                 "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
                 "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
-                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                "fire_time_evolution": {"data": [], 'colormap': None, 'min': None, 'max': None}
             })
     test_frames = {"timestamps": [],
                         "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
                         "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
                         "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
-                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
-                        }
+                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fire_time_evolution": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                    }
     
     print("    |- Setting cache initial state")
     print(f"      |- Cache progress: \033[92m OK \033[0m") if cache.get("progress") == 0 else print(f" |- Cache progress: \033[93m ERROR \033[0m")
@@ -427,10 +462,10 @@ def simulate(gridHolder, recorderHolder, deltaTime, totalTime, frameRecordInterv
 
             for frame in range(int(cache.get("last_frame_sent")), len(recorderHolder.data["timestamps"])):
                 dataToSend["timestamps"].append(recorderHolder.data["timestamps"][frame])
-                for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+                for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg", "fire_time_evolution"]:
                     dataToSend[key]["data"].append(recorderHolder.data[key]["data"][frame])
 
-            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg", "fire_time_evolution"]:
                 dataToSend[key]["min"] = recorderHolder.data[key]["min"]
                 dataToSend[key]["max"] = recorderHolder.data[key]["max"]
                 dataToSend[key]["colormap"] = recorderHolder.data[key]["colormap"]

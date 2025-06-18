@@ -40,7 +40,8 @@ layout = html.Div([
                 "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
                 "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
                 "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
-                "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
+                "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')},
+                "fire_time_evolution": {"data": [], 'colormap': 'turbo', 'min': float('inf'), 'max': float('-inf')}
             }),  # Holds the simulation frames
             dcc.Store(id='is-first-plot-store', data=True),
             dcc.Interval(
@@ -85,6 +86,7 @@ layout = html.Div([
                                 {'label': 'fire intensity (kW/m2)', 'value': 'fire_intensity_kW_m2'},
                                 {'label': 'fuel mass (kg/m2)', 'value': 'fuel_mass_kg'},
                                 {'label': 'fuel moisture (% mass)', 'value': 'fuel_moisture_percentage'},
+                                {'label': 'fire evolution (minutes)', 'value': 'fire_time_evolution'},
                             ],
                             value='temperature_celsius',  # Default value
                             style={'width': '200px'},
@@ -548,7 +550,8 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
                     "fuel_moisture_percentage": {"data": [], 'colormap': 'blues', 'min': float('inf'), 'max': float('-inf')},
                     "temperature_celsius": {"data": [], 'colormap': 'hot', 'min': float('inf'), 'max': float('-inf')},
                     "fire_intensity_kW_m2": {"data": [], 'colormap': 'viridis', 'min': float('inf'), 'max': float('-inf')},
-                    "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')}
+                    "fuel_mass_kg": {"data": [], 'colormap': 'turbid_r', 'min': float('inf'), 'max': float('-inf')},
+                    "fire_time_evolution": {"data": [], 'colormap': 'turbo', 'min': float('inf'), 'max': float('-inf')}
                 }  # Holds the simulation frames
         
         return all_data
@@ -561,12 +564,13 @@ def update_plot_for_simulation(n_intervals, n_clicks, all_data):
                         "fuel_moisture_percentage": {"data": [], 'colormap': None, 'min': None, 'max': None},
                         "temperature_celsius": {"data": [], 'colormap': None, 'min': None, 'max': None},
                         "fire_intensity_kW_m2": {"data": [], 'colormap': None, 'min': None, 'max': None},
-                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None}
+                        "fuel_mass_kg": {"data": [], 'colormap': None, 'min': None, 'max': None},
+                        "fire_time_evolution": {"data": [], 'colormap': None, 'min': None, 'max': None}
                     })
 
             all_data["timestamps"].extend(newData["timestamps"])
 
-            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg"]:
+            for key in ["fuel_moisture_percentage", "temperature_celsius", "fire_intensity_kW_m2", "fuel_mass_kg", "fire_time_evolution"]:
                 all_data[key]["data"].extend(newData[key]["data"])
                 all_data[key]["min"] = newData[key]["min"]
                 all_data[key]["max"] = newData[key]["max"]
