@@ -302,14 +302,15 @@ class SimGrid:
         self.fireIntensity = convolve2d(self.fireIntensity, neighbors_kernel, mode='same', fillvalue=0)
     
         # calculate released energy accounting for neighbors
-        idealReleasedEnergy = self.fireIntensity * self.burnHeatLossFactor * dt # per square meter
-        releasedEnergy = np.clip(idealReleasedEnergy, None, self.fuelMass*self.fuelCalorificValue)
+        idealReleasedEnergy = self.fireIntensity * dt # per square meter
+        usedEnergy = np.clip(idealReleasedEnergy, None, self.fuelMass*self.fuelCalorificValue)
+        realReleasedEnergy = usedEnergy * self.burnHeatLossFactor
     
     
-        self.fuelMass -= (releasedEnergy/self.fuelCalorificValue)
+        self.fuelMass -= (usedEnergy/self.fuelCalorificValue)
         self.fuelMass = np.clip(self.fuelMass, 0, None)
         self.updateGlobalCellMasses()
-        self.cellTemperature = (self.cellThermalE+releasedEnergy)/(self.cellTotalMass*self.cellSpecificHeat) # update cell temp based on E released
+        self.cellTemperature = (self.cellThermalE+realReleasedEnergy)/(self.cellTotalMass*self.cellSpecificHeat) # update cell temp based on E released
         self.updateCellsThermalEBasedOnTemp()
 
 class Toolbox():
