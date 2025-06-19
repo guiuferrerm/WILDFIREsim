@@ -237,7 +237,7 @@ class SimGrid:
             ), axis=-1)
 
             dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
-            windEffectCoef = np.exp(self.windEffectFactor * shifted_wind_lenght * dotProduct)
+            windEffectCoef = np.exp(self.windEffectFactor * np.log1p(shifted_wind_lenght)  * dotProduct)
 
             # height modifier -------------------------
             deltaHeight = self.heightGradients[f"{ops_vector}"]
