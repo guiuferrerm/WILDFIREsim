@@ -224,7 +224,7 @@ class SimGrid:
             deltaT = shifted_temps - self.cellTemperature
 
             # calculate conduction rate ---------------
-            crossSectionLenght = math_and_geometry_tools.get_1d_cross_section_lenght(dx,dy,self.cellSizeX,self.cellSizeY)
+            crossSectionLenght = math_and_geometry_tools.get_1d_cross_section_length(dx,dy,self.cellSizeX,self.cellSizeY)
             conductionRate = self.heatTransferRate * crossSectionLenght * deltaT / real_vector_lenght
             
             # wind modifier ---------------------------
@@ -237,7 +237,12 @@ class SimGrid:
             ), axis=-1)
 
             dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
-            windEffectCoef = np.exp(self.windEffectFactor * np.log1p(shifted_wind_lenght) * dotProduct)
+            reverseWindFactor = 3
+            windEffectCoef = np.exp(
+                self.windEffectFactor * np.log1p(shifted_wind_lenght) *
+                np.where(dotProduct >= 0, dotProduct, reverseWindFactor * dotProduct)
+            )
+
 
             # height modifier -------------------------
             deltaHeight = self.heightGradients[f"{ops_vector}"]
