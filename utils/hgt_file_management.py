@@ -35,6 +35,8 @@ def convert_to_slice(slice_str):
     return slice(start, stop, step)
 
 def prepare_HGT_as_array_data(data, originN, minN, maxN, originE, minE, maxE, arcsecInterval):
+    print('UTHGTFM-- PREPARING DATA')
+    
     import numpy as np
 
     
@@ -70,22 +72,26 @@ def prepare_HGT_as_array_data(data, originN, minN, maxN, originE, minE, maxE, ar
     minimumYCell = round((minN - originN)*arcsecsInDegree/arcsecInterval)
     if minimumYCell < 0:
         minimumYCell = 0
+        print('UTHGTFM-- \033[93m ERROR \033[0m')
         raise IndexError("Minimum N value out of range for file")
     
     maximumYCell = round((maxN - originN)*arcsecsInDegree/arcsecInterval)
     if maximumYCell > data.shape[0]-1:
         maximumYCell = data.shape[0]-1
+        print('UTHGTFM-- \033[93m ERROR \033[0m')
         raise IndexError("Maximum N value out of range for file")
     
     # get min and max x cells
     minimumXCell = round((minE - originE)*arcsecsInDegree/arcsecInterval)
     if minimumXCell < 0:
         minimumXCell = 0
+        print('UTHGTFM-- \033[93m ERROR \033[0m')
         raise IndexError("Minimum E value out of range for file")
     
     maximumXCell = round((maxE - originE)*arcsecsInDegree/arcsecInterval)
     if maximumXCell > data.shape[1]-1:
         maximumXCell = data.shape[1]-1
+        print('UTHGTFM-- \033[93m ERROR \033[0m')
         raise IndexError("Maximum E value out of range for file")
     
     # Prepare the slices for data wanted
@@ -99,7 +105,7 @@ def prepare_HGT_as_array_data(data, originN, minN, maxN, originE, minE, maxE, ar
     X, Y = np.meshgrid(np.linspace((minimumXCell*arcsecInterval/arcsecsInDegree)+originE, (maximumXCell*arcsecInterval/arcsecsInDegree)+originE, maximumXCell-minimumXCell), np.linspace((minimumYCell*arcsecInterval/arcsecsInDegree)+originN, (maximumYCell*arcsecInterval/arcsecsInDegree)+originN, maximumYCell-minimumYCell))
     arcsecMeshGrid = X, Y
 
-    print(meterMeshGrid)
-    print(arcsecMeshGrid)
+    print('UTHGTFM-- \033[92m EVERYTHING OK \033[0m')
+    print('UTHGTFM-- DATA PREPARED')
     
     return selectedData, meterMeshGrid, arcsecMeshGrid

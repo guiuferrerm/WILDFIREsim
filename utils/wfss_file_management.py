@@ -31,7 +31,7 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
         },
 
         "mod_settings": {
-            "cell_effect_radius": 250,
+            "cell_effect_radius": 400.0,
 
             "fuel_igniting_temp": 573.15,
             "fuel_specific_heat": 1.76,
@@ -42,21 +42,23 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
             "ambient_temp": 298.15,
             "boundary_avg_mass": 30.0,
             "boundary_avg_specific_heat": 2.0,
-            "boundary_avg_wind_vector_x": 0,
-            "boundary_avg_wind_vector_y": 0,
+            "boundary_avg_wind_vector_x": 0.0,
+            "boundary_avg_wind_vector_y": 0.0,
 
-            "heat_transfer_rate": 0.003,
-            "slope_effect_factor": 0.2,
-            "wind_effect_factor": 1,
-            "fuel_burn_rate": 0.001,
+            "heat_transfer_rate": 0.25,
+            "slope_effect_factor": 1.8,
+            "general_wind_effect_factor": 0.21,
+            "cross_wind_effect_factor": 0.6,
+            "reverse_wind_effect_factor": 4,
+            "fuel_burn_rate": 0.0005,
             "heat_loss_factor": 0.999,
-            "transfer_heat_loss_factor": 0.7,
-            "burn_heat_loss_factor": 0.7,
+            "transfer_heat_loss_factor": 0.85,
+            "burn_heat_loss_factor": 0.6,
             
         },
 
         "metadata": {
-            "version": 1.12,
+            "version": 1.2,
             "setup_title": setupName,
         },
     }

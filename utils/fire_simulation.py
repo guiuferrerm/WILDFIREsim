@@ -66,7 +66,9 @@ class SimGrid:
         # Fire Spread Constants
         self.heatTransferRate = 0
         self.slopeEffectFactor = 0
-        self.windEffectFactor = 0
+        self.generalWindEffectFactor = 0
+        self.crossWindEffectFactor = 0
+        self.reverseWindEffectFactor= 0
         self.heatLossFactor = 0
         self.transferHeatLossFactor = 0
         self.burnHeatLossFactor = 0
@@ -129,7 +131,9 @@ class SimGrid:
 
         self.heatTransferRate = mod_settings["heat_transfer_rate"] # Kj/(s*m*K)
         self.slopeEffectFactor = mod_settings["slope_effect_factor"]
-        self.windEffectFactor = mod_settings["wind_effect_factor"]
+        self.generalWindEffectFactor = mod_settings["general_wind_effect_factor"]
+        self.crossWindEffectFactor = mod_settings["cross_wind_effect_factor"]
+        self.reverseWindEffectFactor = mod_settings["reverse_wind_effect_factor"]
         self.fuelBurnRate = mod_settings["fuel_burn_rate"]
         self.heatLossFactor = mod_settings["heat_loss_factor"]
         self.transferHeatLossFactor = mod_settings["transfer_heat_loss_factor"]
@@ -237,10 +241,11 @@ class SimGrid:
             ), axis=-1)
 
             dotProduct = normalized_real_vector[0]*normalized_shifted_wind[:,:,0] + normalized_real_vector[1]*normalized_shifted_wind[:,:,1]
-            reverseWindFactor = 5
+            crossWindDeviation = abs(normalized_real_vector[0]*normalized_shifted_wind[:,:,1] - normalized_real_vector[1]*normalized_shifted_wind[:,:,0])
+            windAlignmentEffectIdx = dotProduct - self.crossWindEffectFactor * crossWindDeviation
             windEffectCoef = np.exp(
-                self.windEffectFactor * np.log1p(shifted_wind_lenght) *
-                np.where(dotProduct >= 0, dotProduct, reverseWindFactor * dotProduct)
+                self.generalWindEffectFactor * np.log1p(shifted_wind_lenght) *
+                np.where(windAlignmentEffectIdx >= 0, windAlignmentEffectIdx, self.reverseWindEffectFactor * windAlignmentEffectIdx)
             )
 
             # height modifier -------------------------
