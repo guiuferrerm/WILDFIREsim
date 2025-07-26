@@ -1,6 +1,5 @@
 from dash import html
 
 layout = html.Div([
-    html.H1("Home Page"),
-    html.P("Welcome to the dashboard!")
+    html.P("WILDFIREsim és un projecte de TDR de batxillerat que explora la simulació d'incendis forestals.")
 ])

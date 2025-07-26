@@ -1,6 +1,5 @@
 import numpy as np
 import dash
-import multiprocessing
 from dash import dcc, html, Input, Output, State, ctx, MATCH, ALL
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

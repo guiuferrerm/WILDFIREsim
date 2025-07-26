@@ -5,10 +5,10 @@ layout = html.Nav(
     html.Div([
         # Links on the left side
         html.Div([
-            dcc.Link('Home', href='/', id='home-link', className='nav-link'),
-            dcc.Link('Simulation', href='/simulation', id='simulation-link', className='nav-link'),
-            dcc.Link('Data Assembly', href='/data_assembly', id='data-assembly-link', className='nav-link'),
-            dcc.Link('Data Revision', href='/data_revision', id='data-revision-link', className='nav-link'),
+            dcc.Link('Inici', href='/', id='home-link', className='nav-link'),
+            dcc.Link('Simulació', href='/simulation', id='simulation-link', className='nav-link'),
+            dcc.Link('Creació de fitxers', href='/data_assembly', id='data-assembly-link', className='nav-link'),
+            dcc.Link('Revisió de fitxers', href='/data_revision', id='data-revision-link', className='nav-link'),
         ], className='nav-links'),
 
         # Title on the right side

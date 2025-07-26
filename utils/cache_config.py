@@ -1,6 +1,5 @@
 import diskcache
 from dash import DiskcacheManager
-import multiprocessing
 
 cache = diskcache.Cache("./cache")
 background_callback_manager = DiskcacheManager(cache)
