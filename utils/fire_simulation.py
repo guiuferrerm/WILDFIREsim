@@ -91,8 +91,23 @@ class SimGrid:
         self.cellArea = self.cellSizeX * self.cellSizeY
         self.gridSizeX = int(unmod_settings["array_dim_x"])
         self.gridSizeY = int(unmod_settings["array_dim_y"])
-        self.cellEffectRadius = mod_settings["cell_effect_radius"]
 
+        # Unmod ct.
+        self.waterSpecificHeat = unmod_settings["water_specific_heat"]
+        self.waterLatentHeat = unmod_settings["water_latent_heat"]
+        self.waterBoilingTemp = unmod_settings["water_boiling_temp"]
+        self.cellEffectRadius = unmod_settings["cell_effect_radius"]
+        self.heatTransferRate = unmod_settings["heat_transfer_rate"] # Kj/(s*m*K)
+        self.slopeEffectFactor = unmod_settings["slope_effect_factor"]
+        self.generalWindEffectFactor = unmod_settings["general_wind_effect_factor"]
+        self.crossWindEffectFactor = unmod_settings["cross_wind_effect_factor"]
+        self.reverseWindEffectFactor = unmod_settings["reverse_wind_effect_factor"]
+        self.fuelBurnRate = unmod_settings["fuel_burn_rate"]
+        self.heatLossFactor = unmod_settings["heat_loss_factor"]
+        self.transferHeatLossFactor = unmod_settings["transfer_heat_loss_factor"]
+        self.burnHeatLossFactor = unmod_settings["burn_heat_loss_factor"]
+
+        # Base/primary array
         self.cellHeight = np.copy(heightArray.astype(np.int32))
 
         # Core arrays
@@ -110,11 +125,6 @@ class SimGrid:
         self.waterTemperature = np.copy(temperatureArray)
         self.unburnableTemperature = np.copy(temperatureArray)
 
-        # Constants: unmodified
-        self.waterSpecificHeat = unmod_settings["water_specific_heat"]
-        self.waterLatentHeat = unmod_settings["water_latent_heat"]
-        self.waterBoilingTemp = unmod_settings["water_boiling_temp"]
-
         # Constants: modified
         self.fuelIgnitingTemp = mod_settings["fuel_igniting_temp"]
         self.fuelSpecificHeat = mod_settings["fuel_specific_heat"]
@@ -128,16 +138,6 @@ class SimGrid:
             mod_settings["boundary_avg_wind_vector_x"],
             mod_settings["boundary_avg_wind_vector_y"]
         ])
-
-        self.heatTransferRate = mod_settings["heat_transfer_rate"] # Kj/(s*m*K)
-        self.slopeEffectFactor = mod_settings["slope_effect_factor"]
-        self.generalWindEffectFactor = mod_settings["general_wind_effect_factor"]
-        self.crossWindEffectFactor = mod_settings["cross_wind_effect_factor"]
-        self.reverseWindEffectFactor = mod_settings["reverse_wind_effect_factor"]
-        self.fuelBurnRate = mod_settings["fuel_burn_rate"]
-        self.heatLossFactor = mod_settings["heat_loss_factor"]
-        self.transferHeatLossFactor = mod_settings["transfer_heat_loss_factor"]
-        self.burnHeatLossFactor = mod_settings["burn_heat_loss_factor"]
 
         # Computed values
         self.cellTotalMass = self.fuelMass + self.waterMass + self.unburnableMass
