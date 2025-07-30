@@ -3,11 +3,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-import importador_XEMA
-import tractament_dades_XEMA
-import utilitats_geogràfiques
-
-URL_XEMA_CSV = "https://analisi.transparenciacatalunya.cat/api/views/yqwd-vj5e/rows.csv?accessType=DOWNLOAD"
+import other_external_resources.eines_XEMA.ESTACIONS.importador_estacions_XEMA as importador_estacions_XEMA
+import other_external_resources.eines_XEMA.ESTACIONS.tractament_dades_estacions_XEMA as tractament_dades_estacions_XEMA
+import other_external_resources.eines_XEMA.ESTACIONS.utilitats_geogràfiques as utilitats_geogràfiques
 
 def imprimir_estacions(df: pd.DataFrame):
     if df.empty:
@@ -79,10 +77,10 @@ def main():
     args = parser.parse_args()
 
     # 1) Carregar dades (fitxer separat)
-    df = importador_XEMA.carregar_xema(URL_XEMA_CSV)
+    df = importador_estacions_XEMA.descarregar_estacions_xema()
 
     # 2) Filtrar per radi (fa servir la distància importada a data_xema)
-    estacions_filtrades = tractament_dades_XEMA.filtrar_estacions_per_punt_amb_radi(df, args.lat, args.lon, args.radi)
+    estacions_filtrades = tractament_dades_estacions_XEMA.filtrar_estacions_per_punt_amb_radi(df, args.lat, args.lon, args.radi)
 
     # 3) Sortida
     if estacions_filtrades.empty:
