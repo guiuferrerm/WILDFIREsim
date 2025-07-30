@@ -1,4 +1,4 @@
-import other_external_resources.eines_XEMA.ESTACIONS.utilitats_geogràfiques as utilitats_geogràfiques
+import utilitats_geogràfiques as utilitats_geogràfiques
 import pandas as pd
 
 def filtrar_estacions_per_punt_amb_radi(df: pd.DataFrame, center_lat: float, center_lon: float, radi_km: float) -> pd.DataFrame:

@@ -1,9 +1,9 @@
 import argparse
 import pandas as pd
 import plotly.express as px
-from utilitats_variables_local import carregar_metadades_variables, resoldre_variables
-from importador_dades_local import carregar_csv_local
-from tractament_dades_estacio_local import filtrar_per_estacio_i_variables, agrupar_per_variable
+from DADES_ESTACIO.utilitats_variables_local import carregar_metadades_variables, resoldre_variables
+from DADES_ESTACIO.importador_dades_local import carregar_csv_local
+from DADES_ESTACIO.tractament_dades_estacio_local import filtrar_per_estacio_i_variables, agrupar_per_variable
 
 def main():
     parser = argparse.ArgumentParser(description="Consulta dades XEMA i ploteja variables")

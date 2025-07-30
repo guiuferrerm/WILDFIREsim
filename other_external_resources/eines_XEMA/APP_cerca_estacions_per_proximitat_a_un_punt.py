@@ -3,9 +3,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-import other_external_resources.eines_XEMA.ESTACIONS.importador_estacions_XEMA as importador_estacions_XEMA
-import other_external_resources.eines_XEMA.ESTACIONS.tractament_dades_estacions_XEMA as tractament_dades_estacions_XEMA
-import other_external_resources.eines_XEMA.ESTACIONS.utilitats_geogràfiques as utilitats_geogràfiques
+import ESTACIONS.importador_estacions_XEMA as importador_estacions_XEMA
+import ESTACIONS.tractament_dades_estacions_XEMA as tractament_dades_estacions_XEMA
+import ESTACIONS.utilitats_geogràfiques as utilitats_geogràfiques
 
 def imprimir_estacions(df: pd.DataFrame):
     if df.empty:
