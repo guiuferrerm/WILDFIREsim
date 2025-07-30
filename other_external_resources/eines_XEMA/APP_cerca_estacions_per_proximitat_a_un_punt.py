@@ -36,7 +36,7 @@ def plot_estacions(df: pd.DataFrame, center_lat: float, center_lon: float, radi_
     df_plot = pd.concat([df_plot, centre], ignore_index=True)
 
     # Punts (scatter sobre Mapbox)
-    fig = px.scatter_mapbox(
+    fig = px.scatter_map(
         df_plot,
         lat="LATITUD",
         lon="LONGITUD",
@@ -49,7 +49,7 @@ def plot_estacions(df: pd.DataFrame, center_lat: float, center_lon: float, radi_
     )
 
     # Cercle com a polígon tancat
-    fig.add_trace(go.Scattermapbox(
+    fig.add_trace(go.Scattermap(
         lat=lats_cercle + [lats_cercle[0]],
         lon=lons_cercle + [lons_cercle[0]],
         mode='lines',
