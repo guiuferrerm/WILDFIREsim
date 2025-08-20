@@ -605,13 +605,16 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
     trigger = ctx.triggered_id
     interval_disabled = dash.no_update
 
+    if disableIntervalNextCall:
+        interval_disabled = True
+        print(f'SIMPAGE--                                 disabled interval')
+
     if trigger == 'frame-interval':
-        if disableIntervalNextCall:
-            interval_disabled = True
         simulation_status['progress'] = float(cache.get("progress") or 0)
         if (simulation_status['progress'] >= 100):
             simulation_status['state'] = 'finished'
             disableIntervalNextCall = True
+            print(f'SIMPAGE--                                 state = finished. disabling interval on next call...')
     elif trigger == 'simulate-btn':
         if simulation_status['state'] != 'running':
             simulation_status['state'] = 'running'
@@ -620,5 +623,10 @@ def manage_status_and_interval(n_intervals, n_clicks, reset_n_clicks, upload, si
     elif trigger == 'upload-wfss-for-simulation':
         simulation_status['state'] = 'preparing'
         interval_disabled = True
+    
+    elif trigger == 'reset-btn':
+        interval_disabled = True
+        simulation_status['state'] = 'finished'
+        print(f'SIMPAGE--                                 state = finished. interval disabled')
 
     return simulation_status, interval_disabled

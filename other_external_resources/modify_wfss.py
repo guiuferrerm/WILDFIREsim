@@ -5,8 +5,8 @@ import numpy as np
 sys.path.insert(1, os.getcwd())
 from utils import npz_file_management
 
-readpath = "data/wfss_data/Algarve_Est_Example_File_1.wfss"
-writepath = "data/wfss_data/Algarve_Est_Example_File_1_edited.wfss"
+readpath = "data/wfss_data/Ribera_Ebre_test_file_3.wfss"
+writepath = "data/wfss_data/Ribera_Ebre_test_file_3_edited.wfss"
 
 # ---------- helpers ----------
 
