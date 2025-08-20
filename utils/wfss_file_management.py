@@ -32,7 +32,7 @@ def create_new_wfss_file(setupName, dataArrays, heightData, arcsecMeshGrid, mete
             "cell_effect_radius": 400.0,
 
             "heat_transfer_rate": 0.25,
-            "slope_effect_factor": 2.5,
+            "slope_effect_factor": 1.8,
             "general_wind_effect_factor": 0.21,
             "cross_wind_effect_factor": 0.6,
             "reverse_wind_effect_factor": 4,
