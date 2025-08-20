@@ -6,7 +6,7 @@ sys.path.insert(1, os.getcwd())
 from utils import npz_file_management
 
 readpath = "data/wfss_data/Algarve_Est_Example_File_1.wfss"
-writepath = "data/wfss_data/Algarve_Est_Example_File_1_edited.wfss"
+writepath = "data/wfss_data/Algarve_Est_Example_File_1_edited2.5.wfss"
 
 # ---------- helpers ----------
 
