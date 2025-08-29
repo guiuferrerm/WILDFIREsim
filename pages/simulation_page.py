@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 from app import app
 from utils.cache_config import background_callback_manager, cache
 from utils import cache_config
+from utils import custom_colorscales
 from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.npz_file_management import read_and_store_npz_contents
 from utils.dcc_upload_management import read_and_store_dcc_file_at
@@ -343,7 +344,7 @@ def update_plot_based_on_state(trigger_n_clicks, sim_frames, relayout_data, sele
             igniting_cells = np.zeros_like(height)
 
             fig = make_subplots(rows=1, cols=2, subplot_titles=["Elevation (edit ignition on this one)", "Simulation"])
-            fig.add_trace(go.Heatmap(z=height, x=X, y=Y, colorscale="Geyser", showscale=False), row=1, col=1)
+            fig.add_trace(go.Heatmap(z=height, x=X, y=Y, colorscale=custom_colorscales.mod_geyser, showscale=False), row=1, col=1)
             fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', marker=dict(opacity=0)), row=1, col=1)
             fig.add_trace(go.Heatmap(z=igniting_cells, x=X, y=Y, xaxis='x1', yaxis='y1',colorscale="hot"), row=1, col=2)
             fig.update_layout(dragmode="select", xaxis2=dict(matches='x1'), yaxis2=dict(matches='y1'))

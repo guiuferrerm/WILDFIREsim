@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from app import app
+from utils import custom_colorscales
 from utils.hgt_file_management import HGT_to_np_array, prepare_HGT_as_array_data
 from utils.wfss_file_management import create_new_wfss_file
 from utils.dcc_upload_management import read_and_store_dcc_file_at
@@ -208,7 +209,7 @@ def update_plot(n_clicks, dataType, relayout_data, mod_n_clicks,
                 z=heightData,
                 x=Xmesh[0],
                 y=Ymesh[:, 0],
-                colorscale="Geyser",
+                colorscale=custom_colorscales.mod_geyser,
                 colorbar=dict(
                     title="Elevation",
                     y=1.05,          # Closer to the left plot
