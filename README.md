@@ -20,10 +20,10 @@ The application is structured into the following pages:
   Runs the actual wildfire simulation based on previously defined conditions. It displays the fire’s progression on a grid representing the terrain.
 
 - **Creació de fitxers (File Creation)**  
-  Allows users to define the initial conditions of the fire (such as wind, ignition point, and fuel type). These conditions are then saved in a `.wfss` (WildFire Simulation Settings) file format.
+  Allows users to define the initial conditions of the fire (such as wind or fuel type). These conditions are then saved in a `.wfss` (WILDFIREsim Settings) file format.
 
 - **Revisió de fitxers (File Review)**  
-  Enables users to quickly review the contents of existing `.wfss` files to verify or adjust settings before simulation.
+  Enables users to quickly review the contents of existing `.wfss` files to verify settings before simulation.
 
 ---
 
