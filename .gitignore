@@ -9,6 +9,8 @@ cache/
 # DS STOREEE
 .DS_Store
 
+.vscode/
+
 # C extensions
 *.so
 
